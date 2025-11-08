@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic YouTube Viewer</title>
+    <style>
+        :root {
+            --grid-size: 20px;
+            --aspect-ratio: 56.25%; /* 9 / 16 = 0.5625 */
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        #header-container {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(.4,2,.6,1), box-shadow 0.2s;
+            transform: translateY(-100%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        #header-container.open {
+            transform: translateY(0);
+        }
+        header {
+            background-color: #1f1f1f;
+            padding: 5px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            height: 40px;
+        }
+        header h2 {
+            font-size: 1em;
+            margin: 0;
+            white-space: nowrap;
+        }
+        #add-video-form {
+            display: flex;
+            gap: 10px;
+        }
+        #add-video-form input {
+            padding: 6px 10px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            border-radius: 4px;
+            width: 300px;
+        }
+        #add-video-form button[type="submit"] {
+            padding: 6px 15px;
+            border: none;
+            background-color: #c4302b;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #add-video-form button[type="submit"]:hover {
+            background-color: #a32722;
+        }
+        #hide-header-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 16px;
+            margin-left: 10px;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            padding: 0;
+        }
+        #hide-header-btn:hover {
+            background: #222;
+            color: #fff;
+        }
+        #show-header-btn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 101;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #232323;
+            color: #fff;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            padding: 0;
+        }
+        #show-header-btn:hover {
+            background: #c4302b;
+        }
+        #grid-container {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden;
+        }
+        .video-wrapper {
+            position: absolute;
+            background-color: #000;
+            border: 1px solid #444;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            min-width: calc(var(--grid-size) * 10); /* 200px */
+            user-select: none;
+            transition: box-shadow 0.2s;
+        }
+        .video-wrapper.dragging {
+            z-index: 1000;
+            opacity: 0.85;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        }
+        .video-content {
+            width: 100%;
+            height: auto;
+            background-color: #000;
+        }
+        .video-content-inner {
+            position: relative;
+            width: 100%;
+            padding-top: var(--aspect-ratio);
+        }
+        .video-content-inner iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
+        .video-controls {
+            pointer-events: none;
+        }
+        .move-btn, .close-btn, .resize-icon {
+            position: absolute;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s;
+            pointer-events: auto;
+            z-index: 20;
+            background: rgba(32,32,32,0.7);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .move-btn {
+            top: 6px;
+            left: 6px;
+            width: 22px;
+            height: 22px;
+            cursor: grab;
+            border-radius: 6px;
+        }
+        .move-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .move-btn:active {
+            cursor: grabbing;
+        }
+        .close-btn {
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        .close-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .close-btn:hover {
+            background: #c4302b;
+            color: #fff;
+        }
+        .resize-icon {
+            right: 6px;
+            bottom: 6px;
+            width: 22px;
+            height: 22px;
+            cursor: nwse-resize;
+            border-radius: 6px;
+        }
+        .resize-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+        .resize-icon:hover {
+            background: #2a2a2a;
+        }
+        .video-wrapper:hover .move-btn,
+        .video-wrapper:hover .close-btn,
+        .video-wrapper:hover .resize-icon {
+            opacity: 1;
+        }
+        .move-btn, .close-btn, .resize-icon {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="show-header-btn" title="Add Video">
+        <!-- Material add icon -->
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+    </button>
+    <div id="header-container">
+        <header>
+            <h2>YouTube Grid</h2>
+            <form id="add-video-form">
+                <input type="text" id="video-url-input" placeholder="Paste YouTube URL or Video ID">
+                <button type="submit">Add Video</button>
+            </form>
+            <button id="hide-header-btn" title="Hide">
+                <!-- Material expand_less icon (up arrow) -->
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                    <path d="M7.41 15.41L12 10.83l4.59 4.58" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </header>
+    </div>
+    <main id="grid-container"></main>
+    <script>
+        const gridContainer = document.getElementById('grid-container');
+        const addVideoForm = document.getElementById('add-video-form');
+        const videoUrlInput = document.getElementById('video-url-input');
+        const headerContainer = document.getElementById('header-container');
+        const showHeaderBtn = document.getElementById('show-header-btn');
+        const hideHeaderBtn = document.getElementById('hide-header-btn');
+        const GRID_SIZE = 20;
+        const ASPECT_RATIO = 9 / 16;
+        let videoCount = 0;
+
+        // --- Persistence ---
+        function saveVideos() {
+            const videos = [];
+            document.querySelectorAll('.video-wrapper').forEach(wrapper => {
+                const iframe = wrapper.querySelector('iframe');
+                videos.push({
+                    videoId: iframe.getAttribute('data-videoid'),
+                    left: parseInt(wrapper.style.left, 10),
+                    top: parseInt(wrapper.style.top, 10),
+                    width: parseInt(wrapper.style.width, 10)
+                });
+            });
+            localStorage.setItem('yt_grid_videos', JSON.stringify(videos));
+        }
+        function loadVideos() {
+            const videos = JSON.parse(localStorage.getItem('yt_grid_videos') || '[]');
+            videos.forEach(v => addVideo(v.videoId, v.left, v.top, v.width));
+        }
+
+        // --- Header show/hide logic ---
+        function showHeader() {
+            headerContainer.classList.add('open');
+            showHeaderBtn.style.display = 'none';
+            setTimeout(() => {
+                videoUrlInput.focus();
+            }, 350);
+        }
+        function hideHeader() {
+            headerContainer.classList.remove('open');
+            showHeaderBtn.style.display = '';
+        }
+        showHeaderBtn.addEventListener('click', showHeader);
+        hideHeaderBtn.addEventListener('click', hideHeader);
+        // Open header on load for first use
+        showHeader();
+
+        function getYouTubeId(url) {
+            let ID = '';
+            url = url.replace(/(>|<)/gi, '').split(/(vi\/|v=|\/v\/|youtu\.be\/|\/embed\/)/);
+            if (url[2] !== undefined) {
+                ID = url[2].split(/[^0-9a-z_\-]/i);
+                ID = ID[0];
+            } else {
+                ID = url;
+            }
+            return ID;
+        }
+
+        function getEmbedSrc(videoId) {
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1`;
+        }
+
+        function addVideo(videoId, left, top, width) {
+            videoCount++;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'video-wrapper';
+            const initialWidth = width || 480;
+            const availableWidth = gridContainer.clientWidth - initialWidth;
+            const availableHeight = gridContainer.clientHeight - (initialWidth * ASPECT_RATIO);
+            const startLeft = typeof left === 'number' ? left : Math.max(0, (videoCount * 2 * GRID_SIZE) % (availableWidth + 1));
+            const startTop = typeof top === 'number' ? top : Math.max(0, (videoCount * 2 * GRID_SIZE) % (availableHeight + 1));
+            wrapper.style.left = `${Math.round(startLeft / GRID_SIZE) * GRID_SIZE}px`;
+            wrapper.style.top = `${Math.round(startTop / GRID_SIZE) * GRID_SIZE}px`;
+            wrapper.style.width = `${initialWidth}px`;
+            wrapper.innerHTML = `
+                <div class="video-content">
+                    <div class="video-content-inner">
+                        <iframe
+                            src="${getEmbedSrc(videoId)}"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen
+                            data-videoid="${videoId}">
+                        </iframe>
+                    </div>
+                </div>
+                <div class="video-controls">
+                    <div class="move-btn" title="Move">
+                        <!-- Material open_with icon -->
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                            <path d="M10 9V5H5V10H9V8.41L13.29 12.7C13.68 13.09 14.31 13.09 14.7 12.7C15.09 12.31 15.09 11.68 14.7 11.29L10.41 7H12V9H10ZM14 15V19H19V14H15V15.59L10.71 11.3C10.32 10.91 9.69 10.91 9.3 11.3C8.91 11.69 8.91 12.32 9.3 12.71L13.59 17H12V15H14Z" fill="#fff"/>
+                        </svg>
+                    </div>
+                    <div class="close-btn" title="Close">
+                        <!-- Material close icon -->
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="resize-icon" title="Resize">
+                        <!-- Material fullscreen icon -->
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                            <path d="M7 14H5v5h5v-2M14 19h5v-5h-2M19 10V5h-5v2M10 5H5v5h2" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                </div>
+            `;
+            gridContainer.appendChild(wrapper);
+            saveVideos();
+        }
+
+        // --- Drag and resize logic ---
+        let currentElement = null;
+        let action = null;
+        let startX, startY, startLeft, startTop, startWidth;
+
+        gridContainer.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            // Move (only on move-btn)
+            if (e.target.classList.contains('move-btn') || e.target.closest('.move-btn')) {
+                action = 'drag';
+                currentElement = e.target.closest('.video-wrapper');
+                startDrag(e);
+                return;
+            }
+            // Resize
+            if (e.target.classList.contains('resize-icon') || e.target.closest('.resize-icon')) {
+                action = 'resize';
+                currentElement = e.target.closest('.video-wrapper');
+                startResize(e);
+                return;
+            }
+        });
+
+        gridContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('close-btn') || e.target.closest('.close-btn')) {
+                e.target.closest('.video-wrapper').remove();
+                saveVideos();
+            }
+        });
+
+        function startDrag(e) {
+            e.preventDefault();
+            currentElement.classList.add('dragging');
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = currentElement.offsetLeft;
+            startTop = currentElement.offsetTop;
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopAction);
+        }
+        function doDrag(e) {
+            if (!currentElement) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+            newLeft = Math.round(newLeft / GRID_SIZE) * GRID_SIZE;
+            newTop = Math.round(newTop / GRID_SIZE) * GRID_SIZE;
+            const maxLeft = gridContainer.clientWidth - currentElement.offsetWidth;
+            const maxTop = gridContainer.clientHeight - currentElement.offsetHeight;
+            newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+            newTop = Math.max(0, Math.min(newTop, maxTop));
+            currentElement.style.left = `${newLeft}px`;
+            currentElement.style.top = `${newTop}px`;
+        }
+        function startResize(e) {
+            e.preventDefault();
+            currentElement.classList.add('dragging');
+            startX = e.clientX;
+            startWidth = currentElement.offsetWidth;
+            startLeft = currentElement.offsetLeft;
+            startTop = currentElement.offsetTop;
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopAction);
+        }
+        function doResize(e) {
+            if (!currentElement) return;
+            const dx = e.clientX - startX;
+            let newWidth = startWidth + dx;
+            newWidth = Math.round(newWidth / GRID_SIZE) * GRID_SIZE;
+            const minWidth = parseInt(getComputedStyle(currentElement).minWidth);
+            const maxWidth = gridContainer.clientWidth - currentElement.offsetLeft;
+            newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+            const newHeight = newWidth * ASPECT_RATIO;
+            if (currentElement.offsetTop + newHeight > gridContainer.clientHeight) {
+                newWidth = (gridContainer.clientHeight - currentElement.offsetTop) / ASPECT_RATIO;
+                newWidth = Math.floor(newWidth / GRID_SIZE) * GRID_SIZE;
+            }
+            currentElement.style.width = `${newWidth}px`;
+        }
+        function stopAction() {
+            if (currentElement) {
+                currentElement.classList.remove('dragging');
+                saveVideos();
+            }
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopAction);
+            currentElement = null;
+            action = null;
+        }
+        addVideoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const urlOrId = videoUrlInput.value.trim();
+            if (urlOrId) {
+                const videoId = getYouTubeId(urlOrId);
+                if (videoId) {
+                    addVideo(videoId);
+                    videoUrlInput.value = '';
+                    hideHeader();
+                } else {
+                    alert('Could not find a valid YouTube Video ID.');
+                }
+            }
+        });
+
+        // Restore videos on load
+        loadVideos();
+    </script>
+</body>
+</html>
