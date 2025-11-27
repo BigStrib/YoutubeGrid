@@ -1,0 +1,339 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0a0a0a;
+    color: #ffffff;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Floating icon - always invisible unless directly hovered */
+#floatingIcon {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 44px;
+    height: 44px;
+    background: #1a1a1a;
+    border: 2px solid #2a2a2a;
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 10000;
+    opacity: 0;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+}
+
+#floatingIcon:hover {
+    opacity: 1;
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.9);
+}
+
+/* Add icon SVG */
+.add-icon {
+    width: 20px;
+    height: 20px;
+    fill: #cccccc;
+}
+
+/* Search panel */
+#searchPanel {
+    position: fixed;
+    top: 75px;
+    left: 20px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.9);
+    z-index: 9999;
+    display: none;
+    min-width: 320px;
+}
+
+.search-input-container {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.search-input-container svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    fill: #666666;
+    pointer-events: none;
+}
+
+#searchPanel input {
+    width: 100%;
+    padding: 12px 12px 12px 36px;
+    border: 1px solid #2a2a2a;
+    background: #0a0a0a;
+    color: #cccccc;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#searchPanel input:focus {
+    outline: none;
+    border-color: #404040;
+    background: #141414;
+}
+
+#searchPanel input::placeholder {
+    color: #555555;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.icon-button {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    padding: 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+}
+
+.icon-button:hover {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+    transform: translateY(-1px);
+}
+
+.icon-button svg {
+    width: 18px;
+    height: 18px;
+    fill: #cccccc;
+}
+
+.icon-button.primary {
+    background: #4a1a1a;
+    border-color: #5a2a2a;
+}
+
+.icon-button.primary:hover {
+    background: #5a2a2a;
+    border-color: #6a3a3a;
+}
+
+.icon-button.primary svg {
+    fill: #cc6666;
+}
+
+/* Video container - no shadows, no borders, no rounding, no spacing */
+.video-container {
+    position: absolute;
+    cursor: default;
+    transition: all 0.1s ease;
+    background: #0a0a0a;
+}
+
+.video-container.dragging {
+    cursor: move;
+    z-index: 1000;
+}
+
+.video-container.resizing {
+    transition: none;
+}
+
+.video-container iframe {
+    display: block;
+    border: none;
+}
+
+/* Video controls */
+.video-controls {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.video-container:hover .video-controls {
+    opacity: 1;
+}
+
+.control-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(0,0,0,0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+}
+
+.control-btn:hover {
+    background: rgba(0,0,0,0.95);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+.control-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: #cccccc;
+}
+
+.move-btn:hover {
+    background: rgba(90,42,42,0.9);
+    border-color: rgba(204,102,102,0.6);
+}
+
+.move-btn:hover svg {
+    fill: #cc6666;
+}
+
+.delete-btn:hover {
+    background: rgba(90,42,42,0.9);
+    border-color: rgba(204,102,102,0.6);
+}
+
+.delete-btn:hover svg {
+    fill: #cc6666;
+}
+
+/* Resize handles */
+.resize-handle {
+    position: absolute;
+    background: #404040;
+    opacity: 0;
+    transition: all 0.2s ease;
+    border-radius: 2px;
+}
+
+.video-container:hover .resize-handle {
+    opacity: 0.7;
+}
+
+.resize-handle:hover {
+    opacity: 1;
+    background: #505050;
+}
+
+.resize-se {
+    bottom: -6px;
+    right: -6px;
+    width: 12px;
+    height: 12px;
+    cursor: se-resize;
+}
+
+.resize-sw {
+    bottom: -6px;
+    left: -6px;
+    width: 12px;
+    height: 12px;
+    cursor: sw-resize;
+}
+
+.resize-ne {
+    top: -6px;
+    right: -6px;
+    width: 12px;
+    height: 12px;
+    cursor: ne-resize;
+}
+
+.resize-nw {
+    top: -6px;
+    left: -6px;
+    width: 12px;
+    height: 12px;
+    cursor: nw-resize;
+}
+
+/* Size indicator */
+.size-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.9);
+    color: #cccccc;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: monospace;
+    z-index: 10001;
+    display: none;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Grid overlay */
+#gridOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    background-image: 
+        linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 10px 10px;
+    opacity: 0;
+}
+
+.show-grid #gridOverlay {
+    opacity: 1;
+}
+
+/* Tooltip */
+.tooltip {
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.9);
+    color: #cccccc;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 10002;
+}
+
+.icon-button:hover .tooltip,
+.control-btn:hover .tooltip {
+    opacity: 1;
+}
