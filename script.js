@@ -35,10 +35,10 @@ const ASPECT_RATIO = 16 / 9;
 
 const isLocked = (container) => container.classList.contains('locked');
 
-const snapToGrid = (value, fineSnap = false) => {
+function snapToGrid(value, fineSnap = false) {
     const size = fineSnap ? 5 : GRID_SIZE;
     return Math.round(value / size) * size;
-};
+}
 
 // Extract YouTube video ID from URL
 function getYouTubeVideoId(url) {
@@ -231,12 +231,6 @@ function createVideoContainer(videoId, options = {}) {
     const width = typeof options.width === 'number' ? options.width : 320;
     const height = typeof options.height === 'number' ? options.height : 180;
 
-    // Thumbnail as background to avoid black box on initial load
-    container.style.backgroundImage = `url(https://img.youtube.com/vi/${videoId}/hqdefault.jpg)`;
-    container.style.backgroundSize = 'cover';
-    container.style.backgroundPosition = 'center';
-    container.style.backgroundRepeat = 'no-repeat';
-
     const iframe = document.createElement('iframe');
     iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&playsinline=1`;
     iframe.width = width;
@@ -261,6 +255,7 @@ function createVideoContainer(videoId, options = {}) {
     const lockBtn = createControlButton('lock', container);
     const deleteBtn = createControlButton('delete', container);
 
+    // order: move, lock, delete (delete pushed to right via CSS)
     controls.appendChild(moveBtn);
     controls.appendChild(lockBtn);
     controls.appendChild(deleteBtn);
@@ -301,13 +296,11 @@ function createVideoContainer(videoId, options = {}) {
     });
 
     // Clicking / focusing inside iframe – unlocked only
-    // Focus event reliably fires when user clicks inside the iframe.
     iframe.addEventListener('focus', () => {
         if (isLocked(container)) return;
         bringToFront(container, true);
     });
 
-    // Some browsers may also send mousedown on the iframe element itself
     iframe.addEventListener('mousedown', () => {
         if (isLocked(container)) return;
         bringToFront(container, false);
