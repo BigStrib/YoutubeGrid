@@ -167,6 +167,74 @@ body {
     border: none;
 }
 
+/* Hide the black outline while dragging or resizing */
+.video-container.dragging .hover-outline-edge,
+.video-container.resizing .hover-outline-edge {
+    opacity: 0 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Hover outline edges created via script.js - black, on the very edges */
+.hover-outline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none; /* edges themselves handle events */
+    z-index: 1;
+}
+
+.hover-outline-edge {
+    position: absolute;
+    pointer-events: auto; /* clicks bubble to container */
+    opacity: 0;
+    background-color: transparent;
+    box-shadow: none;
+    transition:
+        opacity 0.15s ease,
+        background-color 0.15s ease,
+        box-shadow 0.15s ease;
+    border-radius: 0;
+}
+
+/* Edges exactly on the frame borders */
+.hover-outline-top {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 7px;
+}
+
+.hover-outline-bottom {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 7px;
+}
+
+.hover-outline-left {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 7px;
+}
+
+.hover-outline-right {
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 7px;
+}
+
+/* On hover: clean black outline hugging the edges */
+.video-container:hover .hover-outline-edge {
+    opacity: 1;
+    background-color: rgb(0, 0, 0);
+    
+}
+
 /* Video controls */
 .video-controls {
     position: absolute;
@@ -178,6 +246,7 @@ body {
     gap: 8px;
     opacity: 0;
     transition: opacity 0.2s ease;
+    z-index: 2; /* above outline */
 }
 
 .video-container:hover .video-controls {
@@ -234,21 +303,16 @@ body {
     fill: #cc6666;
 }
 
-/* Lock button default */
-.lock-btn {
-    /* same base as control-btn, color changes only when locked/hover */
-}
-
-/* Locked state: keep button red */
+/* Lock: red when locked */
 .lock-btn.locked {
-    background: rgba(90,42,42,0.9);
-    border-color: rgba(204,102,102,0.6);
+    background: rgba(90,42,42,0.95);
+    border-color: rgba(204,102,102,0.9);
 }
 .lock-btn.locked svg {
     fill: #cc6666;
 }
 
-/* When locked, movement/resize affordances disabled visually */
+/* When locked, movement/resize disabled visually */
 .video-container.locked .move-btn {
     opacity: 0.5;
     cursor: not-allowed;

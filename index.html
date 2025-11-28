@@ -1,291 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube Playlist Player</title>
-<style>
-:root {
-  --bg: #0a0a0a; --panel: #101010; --panel-alt: #151515; --text: #e8e8e8;
-  --muted: #a3a3a3; --line: #242424; --hover: rgba(255,255,255,.05);
-  --good: #46c37b; --bad: #ff6b6b; --radius: 14px;
-}
-* { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
-.app { display: flex; height: 100vh; overflow: hidden; }
-
-/* LEFT PANEL */
-.sidebar {
-  width: 480px; min-width: 380px; max-width: 560px;
-  border-right: 1px solid var(--line);
-  background: var(--panel);
-  display: flex; flex-direction: column;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.sidebar::-webkit-scrollbar { display: none; }
-
-.toolbar {
-  position: sticky; top: 0; z-index: 5;
-  background: rgba(18,18,18,.92); backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line); padding: 14px;
-}
-
-.search-form {
-  display: flex; gap: 8px;
-  background: var(--panel-alt);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 12px;
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-.search-form:focus-within {
-  border-color: #2a2a2a;
-  box-shadow: 0 0 0 3px rgba(255,255,255,.04);
-}
-.search-input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 14px; }
-.icon-btn {
-  border: 0; background: transparent; color: var(--muted);
-  padding: 6px; border-radius: 10px; cursor: pointer;
-}
-.icon-btn:hover { color: var(--text); background: var(--hover); }
-
-/* PLAYLIST ITEMS */
-.playlist-container { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.playlist-item {
-  display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: center;
-  padding: 10px; border: 1px solid var(--line); border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.008));
-  position: relative; overflow: hidden;
-  transition: background 0.2s, border-color 0.2s;
-}
-.playlist-item:hover { border-color: #2e2e2e; background: var(--hover); }
-
-.playlist-thumb { width: 140px; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; position: relative; background: #0d0d0d; border: 1px solid #191919; }
-.playlist-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.overlay {
-  position: absolute; top: 6px; left: 6px;
-  background: rgba(0,0,0,.65); border-radius: 6px;
-  padding: 2px 4px; display: flex; align-items: center; gap: 4px;
-  font-size: 12px; color: #fff;
-}
-.overlay img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
-
-.badge { position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; background: rgba(0,0,0,.65); color: #fff; border: 1px solid rgba(255,255,255,.12); }
-
-.meta { min-width: 0; position: relative; }
-.title { font-weight: 700; font-size: 14px; color: var(--text); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: normal; line-height: 1.3; margin-bottom: 6px; }
-.actions { display: flex; gap: 6px; position: absolute; bottom: 8px; right: 8px; opacity: 0; transition: opacity 0.15s ease; }
-.playlist-item:hover .actions { opacity: 1; }
-
-.icon-chip { border: 1px solid var(--line); background: rgba(255,255,255,.02); color: var(--text); width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; cursor: pointer; font-size: 16px; }
-.icon-chip:hover { border-color: #2e2e2e; background: rgba(255,255,255,.06); }
-
-.now-playing { position: absolute; left: 8px; top: 8px; z-index: 2; background: #000; color: #fff; border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 6px; letter-spacing: .3px; }
-.playlist-item.active { outline: 2px solid rgba(120,120,120,.25); }
-
-/* RIGHT PANEL */
-.main-player { flex: 1; position: relative; background: var(--panel-alt); overflow: hidden; }
-.main-player iframe { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 0; }
-
-.player-trash { position: absolute; top: 8px; right: 8px; z-index: 10; border: 1px solid var(--line); background: rgba(0,0,0,0.35); color: var(--text); width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; opacity: 0; transition: opacity .2s; }
-.main-player.has-video:hover .player-trash { opacity: 1; }
-.player-trash svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-/* TOAST */
-.toast-wrap { position: fixed; bottom: 16px; left: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
-.toast { background: rgba(20,20,20,.96); border: 1px solid var(--line); color: var(--text); padding: 10px 12px; border-radius: 10px; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.55); animation: toastIn .2s ease; }
-.toast.good { border-color: rgba(70,195,123,.35); color: #dff8ea; }
-.toast.bad { border-color: rgba(255,107,107,.4); color: #ffe1e1; }
-
-@keyframes toastIn { from { transform: translateY(6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-
-.hidden { display: none !important; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Manager</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <header class="toolbar">
-      <form class="search-form" id="searchForm" autocomplete="off">
-        <input class="search-input" id="videoInput" placeholder="Paste YouTube URL and press Enter…" />
-        <button type="submit" class="icon-btn" aria-label="Add video">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="7"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-        </button>
-      </form>
-    </header>
-    <section class="playlist-container" id="playlist"></section>
-  </aside>
-
-  <main class="main-player" id="playerArea">
-    <button class="player-trash hidden" id="removeCurrentBtn" aria-label="Remove current video">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <polyline points="3 6 5 6 21 6"/>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-      </svg>
-    </button>
-  </main>
-</div>
-
-<div class="toast-wrap" id="toastWrap"></div>
-
-<script>
-/* ===== Constants & State ===== */
-const STORAGE_KEY = "yt_playlist_v1";
-const ASPECT_RATIO = 16/9;
-const state = { playlist: [], currentIndex: -1 };
-
-/* ===== DOM Elements ===== */
-const playlistContainer = document.getElementById('playlist');
-const videoInput = document.getElementById('videoInput');
-const searchForm = document.getElementById('searchForm');
-const playerArea = document.getElementById('playerArea');
-const removeCurrentBtn = document.getElementById('removeCurrentBtn');
-const toastWrap = document.getElementById('toastWrap');
-
-/* ===== Utilities ===== */
-const saveLocal = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} };
-const loadLocal = () => { 
-  try { const raw = localStorage.getItem(STORAGE_KEY); if(raw){ Object.assign(state, JSON.parse(raw)); } } catch(e){}
-};
-const showToast = (msg, type='') => {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  toastWrap.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-};
-const createElement = (tag, className='', innerHTML='') => {
-  const el = document.createElement(tag); el.className = className; el.innerHTML = innerHTML; return el;
-};
-
-/* ===== YouTube Helpers ===== */
-const extractYouTubeId = (url) => {
-  try {
-    const u = new URL(url);
-    if(u.hostname.includes('youtu.be')) return u.pathname.slice(1,12);
-    if(u.searchParams.get('v')) return u.searchParams.get('v');
-    const parts = u.pathname.split('/').filter(Boolean);
-    if(parts[0] === 'embed' && parts[1]) return parts[1];
-    if(parts[0] === 'shorts' && parts[1]) return parts[1];
-  } catch(e){} 
-  return null;
-};
-const fetchVideoMeta = async (id) => {
-  const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`);
-  const data = await res.json();
-  return {
-    id,
-    title: data.title,
-    thumb: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
-    channelTitle: data.author_name,
-    channelIcon: `https://www.google.com/s2/favicons?domain=${encodeURIComponent('https://www.youtube.com')}`,
-    duration: '—'
-  };
-};
-
-/* ===== Playlist Rendering ===== */
-const renderPlaylist = () => {
-  playlistContainer.innerHTML = '';
-  state.playlist.forEach((item, idx) => {
-    const row = createElement('div', `playlist-item${idx===state.currentIndex?' active':''}`);
-    row.dataset.index = idx;
-    row.innerHTML = `
-      <div class="playlist-thumb">
-        <img src="${item.thumb}" alt="${item.title}"/>
-        <div class="overlay">
-          <img src="${item.channelIcon}" alt="Channel icon"/> <span>${item.channelTitle}</span>
-        </div>
-        <div class="badge">${item.duration}</div>
-      </div>
-      <div class="meta">
-        <div class="title">${item.title}</div>
-        <div class="actions">
-          <div class="icon-chip delete" title="Delete">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          </div>
-        </div>
-      </div>`;
+    <div id="floatingIcon">
+        <svg class="add-icon" viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+    </div>
     
-    row.querySelector('.playlist-thumb, .title').addEventListener('click', () => loadVideo(idx));
-    row.querySelector('.delete').addEventListener('click', e => {
-      e.stopPropagation();
-      if(idx === state.currentIndex) clearPlayer();
-      state.playlist.splice(idx,1);
-      renderPlaylist(); saveLocal();
-    });
-    
-    playlistContainer.appendChild(row);
-  });
-};
+    <div id="searchPanel">
+        <div class="search-input-container">
+            <svg viewBox="0 0 24 24">
+                <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
+            </svg>
+            <input type="text" id="urlInput" placeholder="Paste YouTube URL...">
+        </div>
+        <div class="button-group">
+            <button class="icon-button primary" onclick="addVideo()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <div class="tooltip">Add Video</div>
+            </button>
+            <button class="icon-button" onclick="closeSearch()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+                <div class="tooltip">Cancel</div>
+            </button>
+        </div>
+    </div>
 
-/* ===== Player Functions ===== */
-const loadVideo = (index) => {
-  if(index < 0 || index >= state.playlist.length) return;
-  state.currentIndex = index;
-  let iframe = playerArea.querySelector('iframe');
-  if(!iframe) {
-    iframe = document.createElement('iframe');
-    iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'); 
-    iframe.allowFullscreen = true;
-    playerArea.appendChild(iframe);
-  }
-  iframe.src = `https://www.youtube.com/embed/${state.playlist[index].id}?autoplay=1&rel=0`;
-  playerArea.classList.add('has-video');
-  removeCurrentBtn.classList.remove('hidden');
-  fitPlayer();
-  renderPlaylist(); saveLocal();
-};
+    <div id="gridOverlay"></div>
+    <div class="size-indicator" id="sizeIndicator"></div>
 
-const clearPlayer = () => {
-  const iframe = playerArea.querySelector('iframe');
-  if(iframe) iframe.remove();
-  playerArea.classList.remove('has-video');
-  removeCurrentBtn.classList.add('hidden');
-  state.currentIndex = -1;
-};
-
-/* ===== Responsive Player ===== */
-const fitPlayer = () => {
-  const iframe = playerArea.querySelector('iframe');
-  if(!iframe) return;
-  const cw = playerArea.clientWidth, ch = playerArea.clientHeight;
-  let w = cw, h = w / ASPECT_RATIO;
-  if(h > ch){ h = ch; w = h * ASPECT_RATIO; }
-  iframe.style.width = w + 'px';
-  iframe.style.height = h + 'px';
-};
-
-/* ===== Event Listeners ===== */
-searchForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const url = videoInput.value.trim();
-  if(!url) return;
-  const id = extractYouTubeId(url);
-  if(!id){ showToast('Invalid YouTube URL','bad'); return; }
-  if(state.playlist.some(v => v.id === id)){ showToast('Video already in playlist',''); return; }
-  try {
-    const meta = await fetchVideoMeta(id);
-    state.playlist.push(meta);
-    renderPlaylist(); saveLocal();
-    videoInput.value = '';
-    showToast('Added to playlist','good');
-  } catch(err) { console.error(err); showToast('Could not fetch video','bad'); }
-});
-
-removeCurrentBtn.addEventListener('click', () => {
-  if(state.currentIndex < 0) return;
-  state.playlist.splice(state.currentIndex,1);
-  clearPlayer(); renderPlaylist(); saveLocal();
-});
-
-/* ===== Initialization ===== */
-loadLocal(); renderPlaylist();
-window.addEventListener('resize', fitPlayer);
-</script>
+    <script src="script.js" defer></script>
 </body>
 </html>
