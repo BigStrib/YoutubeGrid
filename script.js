@@ -20,7 +20,6 @@ let maxZIndex = 1;
 
 const GRID_SIZE = 10;
 const SNAP_THRESHOLD = 20;
-const STORAGE_KEY = 'ytVideoManagerVideos';
 
 const DEFAULT_LEFT = 100;
 const DEFAULT_TOP = 100;
@@ -40,12 +39,74 @@ function snapToGrid(value, fineSnap = false) {
     return Math.round(value / size) * size;
 }
 
-// Extract YouTube video ID from URL
-function getYouTubeVideoId(url) {
+/**
+ * Robust YouTube ID extractor
+ * Accepts:
+ *  - Full YouTube URLs (watch, embed, shorts, live, etc.)
+ *  - youtu.be short links
+ *  - URLs with many params (?v=..., ?si=..., etc.)
+ *  - Plain video ID (11 chars) pasted directly
+ */
+function getYouTubeVideoId(input) {
+    if (!input) return null;
+
+    const trimmed = input.trim();
+
+    // If user pasted just the ID
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    // Ensure we have a protocol so URL() works
+    let urlStr = trimmed;
+    if (!/^https?:\/\//i.test(urlStr)) {
+        urlStr = 'https://' + urlStr;
+    }
+
+    let url;
+    try {
+        url = new URL(urlStr);
+    } catch {
+        return null;
+    }
+
+    const hostname = url.hostname.replace(/^www\./i, '').toLowerCase();
+    const path = url.pathname;
+    const segments = path.split('/').filter(Boolean);
+
+    // 1. youtu.be/<id>
+    if (hostname === 'youtu.be' && segments.length >= 1) {
+        const id = segments[0];
+        return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+    }
+
+    // 2. Any *.youtube.com host
+    if (hostname.endsWith('youtube.com')) {
+        // a) watch?v=<id>
+        const vParam = url.searchParams.get('v');
+        if (vParam && /^[a-zA-Z0-9_-]{11}$/.test(vParam)) {
+            return vParam;
+        }
+
+        // b) /embed/<id>, /shorts/<id>, /live/<id>, /v/<id>
+        if (segments.length >= 2) {
+            const knownPrefixes = ['embed', 'shorts', 'live', 'v'];
+            if (knownPrefixes.includes(segments[0])) {
+                const id = segments[1];
+                return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+            }
+        }
+    }
+
+    // 3. Fallback regex for odd cases
     const regExp =
-        /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[7].length === 11 ? match[7] : null;
+        /(?:youtu\.be\/|youtube\.com\/(?:embed\/|shorts\/|v\/|watch\?v=|watch\?.+&v=))([^#&?]{11})/;
+    const match = input.match(regExp);
+    if (match && match[1]) {
+        return match[1];
+    }
+
+    return null;
 }
 
 // Find videos with similar sizes for snapping
@@ -70,7 +131,7 @@ function findSimilarSizes(currentVideo, targetWidth, targetHeight) {
     return similarSizes;
 }
 
-// Choose the closest existing size if within SNAP_THRESHOLD
+// Choose closest existing size if within SNAP_THRESHOLD
 function getSnappedSize(currentVideo, width, height) {
     const similar = findSimilarSizes(currentVideo, width, height);
     if (similar.length === 0) return { width, height };
@@ -105,11 +166,8 @@ function updateSizeIndicator(width, height, show = true) {
 }
 
 // Bring a video to the front (highest z-index)
-function bringToFront(container, persist = false) {
+function bringToFront(container) {
     container.style.zIndex = ++maxZIndex;
-    if (persist) {
-        saveVideosToStorage();
-    }
 }
 
 // Lock / unlock icon handling
@@ -140,13 +198,12 @@ function setLockIcon(button, locked) {
 function lockVideo(container, lockButton) {
     container.classList.add('locked');
     setLockIcon(lockButton, true);
-    saveVideosToStorage();
 }
 
 function unlockVideo(container, lockButton) {
     container.classList.remove('locked');
     setLockIcon(lockButton, false);
-    bringToFront(container, true);
+    bringToFront(container);
 }
 
 // ========================
@@ -157,7 +214,7 @@ function createControlButton(type, container) {
     const button = document.createElement('div');
     button.className = `control-btn ${type}-btn`;
 
-    // ---- Lock button ----
+    // Lock button
     if (type === 'lock') {
         button.classList.add('lock-btn');
         button.innerHTML = `
@@ -169,8 +226,7 @@ function createControlButton(type, container) {
         tooltip.className = 'tooltip';
         button.appendChild(tooltip);
 
-        const initiallyLocked = isLocked(container);
-        setLockIcon(button, initiallyLocked);
+        setLockIcon(button, isLocked(container));
 
         button.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -184,7 +240,7 @@ function createControlButton(type, container) {
         return button;
     }
 
-    // ---- Move / Delete buttons ----
+    // Move / Delete buttons
     const tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
 
@@ -217,7 +273,7 @@ function createControlButton(type, container) {
 }
 
 // =====================
-// Video Creation / I/O
+// Video Creation
 // =====================
 
 function createVideoContainer(videoId, options = {}) {
@@ -243,10 +299,6 @@ function createVideoContainer(videoId, options = {}) {
     container.style.width = `${width}px`;
     container.style.height = `${height}px`;
 
-    if (options.locked) {
-        container.classList.add('locked');
-    }
-
     // Controls
     const controls = document.createElement('div');
     controls.className = 'video-controls';
@@ -255,7 +307,7 @@ function createVideoContainer(videoId, options = {}) {
     const lockBtn = createControlButton('lock', container);
     const deleteBtn = createControlButton('delete', container);
 
-    // order: move, lock, delete (delete pushed to right via CSS)
+    // Order: move, lock, delete (delete pushed to right via CSS)
     controls.appendChild(moveBtn);
     controls.appendChild(lockBtn);
     controls.appendChild(deleteBtn);
@@ -280,30 +332,25 @@ function createVideoContainer(videoId, options = {}) {
     container.style.left = `${left}px`;
     container.style.top = `${top}px`;
 
-    // z-index: new videos on top, loaded videos keep their saved zIndex
-    const zIndex =
-        typeof options.zIndex === 'number' ? options.zIndex : ++maxZIndex;
-    container.style.zIndex = zIndex;
-    if (zIndex > maxZIndex) {
-        maxZIndex = zIndex;
-    }
+    // z-index: new videos on top
+    container.style.zIndex = ++maxZIndex;
 
     // Clicking the container (outside iframe) – unlocked only
     container.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return; // left-click only
         if (isLocked(container)) return;
-        bringToFront(container, true);
+        bringToFront(container);
     });
 
     // Clicking / focusing inside iframe – unlocked only
     iframe.addEventListener('focus', () => {
         if (isLocked(container)) return;
-        bringToFront(container, true);
+        bringToFront(container);
     });
 
     iframe.addEventListener('mousedown', () => {
         if (isLocked(container)) return;
-        bringToFront(container, false);
+        bringToFront(container);
     });
 
     document.body.appendChild(container);
@@ -312,73 +359,32 @@ function createVideoContainer(videoId, options = {}) {
     return container;
 }
 
-function saveVideosToStorage() {
-    try {
-        const data = allVideos.map((container) => {
-            const rect = container.getBoundingClientRect();
-            return {
-                videoId: container.dataset.videoId,
-                left: Math.round(rect.left),
-                top: Math.round(rect.top),
-                width: Math.round(rect.width),
-                height: Math.round(rect.height),
-                zIndex: parseInt(container.style.zIndex, 10) || 1,
-                locked: isLocked(container)
-            };
-        });
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (err) {
-        console.error('Error saving videos to storage:', err);
-    }
-}
-
-function loadVideosFromStorage() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-
-    try {
-        const savedVideos = JSON.parse(raw);
-        savedVideos.forEach((item) => {
-            createVideoContainer(item.videoId, {
-                left: item.left,
-                top: item.top,
-                width: item.width,
-                height: item.height,
-                zIndex: item.zIndex,
-                locked: item.locked
-            });
-        });
-    } catch (err) {
-        console.error('Error loading videos from storage:', err);
-    }
-}
-
 // ====================
 // Public UI Functions
 // ====================
 
 function addVideo() {
     const urlInput = document.getElementById('urlInput');
+    if (!urlInput) return;
+
     const url = urlInput.value.trim();
     if (!url) return;
 
     const videoId = getYouTubeVideoId(url);
     if (!videoId) {
-        alert('Please enter a valid YouTube URL');
+        alert('Please enter a valid YouTube URL or video ID');
         return;
     }
 
     createVideoContainer(videoId);
-    saveVideosToStorage();
     closeSearch();
 }
 
 function closeSearch() {
     const panel = document.getElementById('searchPanel');
     const urlInput = document.getElementById('urlInput');
-    panel.style.display = 'none';
-    urlInput.value = '';
+    if (panel) panel.style.display = 'none';
+    if (urlInput) urlInput.value = '';
 }
 
 function removeVideo(container) {
@@ -387,8 +393,11 @@ function removeVideo(container) {
         allVideos.splice(index, 1);
     }
     container.remove();
-    saveVideosToStorage();
 }
+
+// Expose functions for inline HTML handlers
+window.addVideo = addVideo;
+window.closeSearch = closeSearch;
 
 // ==============
 // Drag Handling
@@ -401,7 +410,7 @@ function startMove(e, container) {
     currentElement = container;
     container.classList.add('dragging');
 
-    bringToFront(container, false);
+    bringToFront(container);
 
     const rect = container.getBoundingClientRect();
     startX = e.clientX - rect.left;
@@ -441,8 +450,6 @@ function stopMove() {
 
     document.removeEventListener('mousemove', handleMove);
     document.removeEventListener('mouseup', stopMove);
-
-    saveVideosToStorage();
 }
 
 // ===============
@@ -457,7 +464,7 @@ function startResize(e, element, direction) {
     resizeDirection = direction;
     element.classList.add('resizing');
 
-    bringToFront(element, false);
+    bringToFront(element);
 
     const rect = element.getBoundingClientRect();
     startX = e.clientX;
@@ -554,8 +561,6 @@ function stopResize() {
     document.removeEventListener('mouseup', stopResize);
     document.body.classList.remove('show-grid');
     updateSizeIndicator(0, 0, false);
-
-    saveVideosToStorage();
 }
 
 // ===============
@@ -566,6 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const floatingIcon = document.getElementById('floatingIcon');
     const urlInput = document.getElementById('urlInput');
     const searchPanel = document.getElementById('searchPanel');
+
+    if (!floatingIcon || !urlInput || !searchPanel) return;
 
     // Toggle search panel
     floatingIcon.addEventListener('click', () => {
@@ -589,7 +596,4 @@ document.addEventListener('DOMContentLoaded', () => {
             searchPanel.style.display = 'none';
         }
     });
-
-    // Load saved videos
-    loadVideosFromStorage();
 });
