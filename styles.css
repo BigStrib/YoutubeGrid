@@ -12,7 +12,7 @@ body {
     height: 100vh;
 }
 
-/* Floating icon */
+/* Plus icon: hover-only (no click behavior) */
 #floatingIcon {
     position: fixed;
     top: 20px;
@@ -22,7 +22,7 @@ body {
     background: #1a1a1a;
     border: 2px solid #2a2a2a;
     border-radius: 8px;
-    cursor: pointer;
+    cursor: default; /* hover effect only */
     z-index: 10000;
     opacity: 0;
     transition: all 0.3s ease;
@@ -33,19 +33,21 @@ body {
     font-size: 18px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.8);
 }
-
 #floatingIcon:hover {
     opacity: 1;
     background: #2a2a2a;
     border-color: #3a3a3a;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.9);
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.9);
 }
-
 .add-icon {
     width: 20px;
     height: 20px;
     fill: #cccccc;
+    transition: all 0.2s ease;
+}
+#floatingIcon:hover .add-icon {
+    fill: #cc6666;
 }
 
 /* Search panel */
@@ -55,19 +57,18 @@ body {
     left: 20px;
     background: #1a1a1a;
     border: 1px solid #2a2a2a;
-    padding: 20px;
+    padding: 16px;
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.9);
     z-index: 9999;
     display: none;
-    min-width: 320px;
+    min-width: 280px;
 }
 
 .search-input-container {
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
-
 .search-input-container svg {
     position: absolute;
     left: 12px;
@@ -78,7 +79,6 @@ body {
     fill: #666666;
     pointer-events: none;
 }
-
 #searchPanel input {
     width: 100%;
     padding: 12px 12px 12px 36px;
@@ -89,61 +89,56 @@ body {
     border-radius: 6px;
     transition: all 0.2s ease;
 }
-
 #searchPanel input:focus {
     outline: none;
     border-color: #404040;
     background: #141414;
 }
-
 #searchPanel input::placeholder {
     color: #555555;
 }
 
+/* Icon-only buttons in popup */
 .button-group {
     display: flex;
-    gap: 10px;
+    gap: 8px;
 }
-
 .icon-button {
     background: #2a2a2a;
     border: 1px solid #3a3a3a;
-    padding: 12px;
+    padding: 0;
+    width: 125px;
+    height: 44px;
     cursor: pointer;
     border-radius: 6px;
     transition: all 0.2s ease;
-    flex: 1;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    position: relative;
 }
-
 .icon-button:hover {
     background: #3a3a3a;
     border-color: #4a4a4a;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
-
 .icon-button svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     fill: #cccccc;
+    transition: fill 0.2s ease;
 }
-
+.icon-button:hover svg {
+    fill: #ffffff;
+}
 .icon-button.primary {
     background: #4a1a1a;
     border-color: #5a2a2a;
 }
-
 .icon-button.primary:hover {
     background: #5a2a2a;
-    border-color: #6a3a3a;
-}
-
-.icon-button.primary svg {
-    fill: #cc6666;
+    border-color: #cc6666;
+    box-shadow: 0 4px 12px rgba(204,102,102,0.3);
 }
 
 /* Video container */
@@ -152,90 +147,50 @@ body {
     cursor: default;
     transition: all 0.1s ease;
     background: #0a0a0a;
+    overflow: hidden;
 }
-
 .video-container.dragging {
     cursor: move;
 }
-
 .video-container.resizing {
     transition: none;
 }
 
-.video-container iframe {
-    display: block;
+/* YouTube frame should always fill container (no gaps) */
+.player-wrapper,
+.youtube-player,
+.player-wrapper iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     border: none;
 }
 
-/* Hide the black outline while dragging or resizing */
-.video-container.dragging .hover-outline-edge,
-.video-container.resizing .hover-outline-edge {
-    opacity: 0 !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-}
-
-/* Hover outline edges created via script.js - black, on the very edges */
+/* Hover outline edges */
 .hover-outline {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none; /* edges themselves handle events */
+    inset: 0;
+    pointer-events: none;
     z-index: 1;
 }
-
 .hover-outline-edge {
     position: absolute;
-    pointer-events: auto; /* clicks bubble to container */
+    pointer-events: auto;
     opacity: 0;
     background-color: transparent;
-    box-shadow: none;
-    transition:
-        opacity 0.15s ease,
-        background-color 0.15s ease,
-        box-shadow 0.15s ease;
-    border-radius: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
 }
-
-/* Edges exactly on the frame borders */
-.hover-outline-top {
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 7px;
-}
-
-.hover-outline-bottom {
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 7px;
-}
-
-.hover-outline-left {
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 7px;
-}
-
-.hover-outline-right {
-    top: 0;
-    bottom: 0;
-    right: 0;
-    width: 7px;
-}
-
-/* On hover: clean black outline hugging the edges */
+.hover-outline-top { top: 0; left: 0; right: 0; height: 7px; }
+.hover-outline-bottom { bottom: 0; left: 0; right: 0; height: 7px; }
+.hover-outline-left { top: 0; bottom: 0; left: 0; width: 7px; }
+.hover-outline-right { top: 0; bottom: 0; right: 0; width: 7px; }
 .video-container:hover .hover-outline-edge {
     opacity: 1;
-    background-color: rgb(0, 0, 0);
-    
+    background-color: #000;
 }
 
-/* Video controls */
+/* Top control buttons: move, lock, delete */
 .video-controls {
     position: absolute;
     top: 8px;
@@ -246,17 +201,10 @@ body {
     gap: 8px;
     opacity: 0;
     transition: opacity 0.2s ease;
-    z-index: 2; /* above outline */
+    z-index: 20;
 }
-
-.video-container:hover .video-controls {
-    opacity: 1;
-}
-
-/* Delete pushed to right, move+lock stay together on left */
-.video-controls .delete-btn {
-    margin-left: auto;
-}
+.video-container:hover .video-controls { opacity: 1; }
+.video-controls .delete-btn { margin-left: auto; }
 
 .control-btn {
     width: 32px;
@@ -272,56 +220,29 @@ body {
     backdrop-filter: blur(8px);
     position: relative;
 }
-
-.control-btn svg {
-    width: 14px;
-    height: 14px;
-    fill: #cccccc;
-}
-
+.control-btn svg { width: 14px; height: 14px; fill: #cccccc; }
 .control-btn:hover {
     background: rgba(0,0,0,0.95);
     border-color: rgba(255,255,255,0.2);
     transform: translateY(-1px);
 }
-
-/* Move */
 .move-btn:hover {
     background: rgba(90,42,42,0.9);
     border-color: rgba(204,102,102,0.6);
 }
-.move-btn:hover svg {
-    fill: #cc6666;
-}
-
-/* Delete */
+.move-btn:hover svg { fill: #cc6666; }
 .delete-btn:hover {
     background: rgba(90,42,42,0.9);
     border-color: rgba(204,102,102,0.6);
 }
-.delete-btn:hover svg {
-    fill: #cc6666;
-}
-
-/* Lock: red when locked */
+.delete-btn:hover svg { fill: #cc6666; }
 .lock-btn.locked {
     background: rgba(90,42,42,0.95);
     border-color: rgba(204,102,102,0.9);
 }
-.lock-btn.locked svg {
-    fill: #cc6666;
-}
-
-/* When locked, movement/resize disabled visually */
-.video-container.locked .move-btn {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.video-container.locked .resize-handle {
-    opacity: 0 !important;
-    pointer-events: none;
-}
+.lock-btn.locked svg { fill: #cc6666; }
+.video-container.locked .move-btn { opacity: 0.5; cursor: not-allowed; }
+.video-container.locked .resize-handle { opacity: 0 !important; pointer-events: none; }
 
 /* Resize handles */
 .resize-handle {
@@ -330,48 +251,14 @@ body {
     opacity: 0;
     transition: all 0.2s ease;
     border-radius: 2px;
+    z-index: 25;
 }
-
-.video-container:hover .resize-handle {
-    opacity: 0.7;
-}
-
-.resize-handle:hover {
-    opacity: 1;
-    background: #505050;
-}
-
-.resize-se {
-    bottom: -6px;
-    right: -6px;
-    width: 12px;
-    height: 12px;
-    cursor: se-resize;
-}
-
-.resize-sw {
-    bottom: -6px;
-    left: -6px;
-    width: 12px;
-    height: 12px;
-    cursor: sw-resize;
-}
-
-.resize-ne {
-    top: -6px;
-    right: -6px;
-    width: 12px;
-    height: 12px;
-    cursor: ne-resize;
-}
-
-.resize-nw {
-    top: -6px;
-    left: -6px;
-    width: 12px;
-    height: 12px;
-    cursor: nw-resize;
-}
+.video-container:hover .resize-handle { opacity: 0.7; }
+.resize-handle:hover { opacity: 1; background: #505050; }
+.resize-se { bottom: -6px; right: -6px; width: 12px; height: 12px; cursor: se-resize; }
+.resize-sw { bottom: -6px; left: -6px; width: 12px; height: 12px; cursor: sw-resize; }
+.resize-ne { top: -6px; right: -6px; width: 12px; height: 12px; cursor: ne-resize; }
+.resize-nw { top: -6px; left: -6px; width: 12px; height: 12px; cursor: nw-resize; }
 
 /* Size indicator */
 .size-indicator {
@@ -390,45 +277,167 @@ body {
     border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* Grid overlay */
-#gridOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -1;
-    background-image: 
-        linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 10px 10px;
-    opacity: 0;
-}
+/* Never show grid overlay */
+#gridOverlay { display: none !important; }
 
-.show-grid #gridOverlay {
-    opacity: 1;
-}
-
-/* Tooltip */
-.tooltip {
+/* Custom player controls overlay (bottom) */
+.player-controls-overlay {
     position: absolute;
-    bottom: -35px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.9);
-    color: #cccccc;
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 48px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7), transparent);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 8px;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.3s ease;
+    z-index: 15;
     pointer-events: none;
-    z-index: 10002;
+}
+.video-container:hover .player-controls-overlay,
+.video-container.seeking .player-controls-overlay,
+.video-container.fullscreen .player-controls-overlay {
+    opacity: 1;
+    pointer-events: auto;
 }
 
-.icon-button:hover .tooltip,
-.control-btn:hover .tooltip {
-    opacity: 1;
+.player-controls-left,
+.player-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
 }
+
+/* Player control buttons (play/pause, volume, live, fullscreen) */
+.player-control-btn,
+.live-btn {
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    opacity: 0.9;
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    border-radius: 4px;
+}
+.player-control-btn:hover,
+.live-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+.player-control-btn svg,
+.live-btn svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    fill: #ffffff;
+}
+.live-btn svg { fill: #cc6666; }
+
+/* Volume control */
+.volume-control { display: flex; align-items: center; gap: 4px; position: relative; }
+.volume-slider-container {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+    display: flex; align-items: center;
+}
+.volume-control:hover .volume-slider-container,
+.volume-slider-container.active { width: 60px; }
+.volume-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 60px; height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px; outline: none; cursor: pointer;
+}
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; background: #ffffff;
+    border-radius: 50%; cursor: pointer; transition: transform 0.15s ease;
+}
+.volume-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.volume-slider::-moz-range-thumb {
+    width: 12px; height: 12px; background: #ffffff; border-radius: 50%;
+    cursor: pointer; border: none; transition: transform 0.15s ease;
+}
+.volume-slider::-moz-range-thumb:hover { transform: scale(1.2); }
+.volume-slider::-moz-range-track {
+    background: rgba(255, 255, 255, 0.3); border-radius: 2px; height: 4px;
+}
+
+/* Progress bar */
+.progress-container {
+    flex: 1; display: flex; align-items: center;
+    padding: 10px 0; cursor: pointer; min-width: 50px;
+}
+.progress-bar {
+    position: relative; width: 100%; height: 4px;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 2px; overflow: visible; transition: height 0.15s ease;
+}
+.progress-container:hover .progress-bar,
+.video-container.seeking .progress-bar { height: 6px; }
+.progress-buffered {
+    position: absolute; top: 0; left: 0; height: 100%;
+    background: rgba(255, 255, 255, 0.4); border-radius: 2px; width: 0%;
+    transition: width 0.1s linear;
+}
+.progress-filled {
+    position: absolute; top: 0; left: 0; height: 100%;
+    background: #cc6666; border-radius: 2px; width: 0%; z-index: 1;
+}
+.progress-ball {
+    position: absolute; top: 50%; left: 0%;
+    width: 14px; height: 14px; background: #cc6666;
+    border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.15s ease; z-index: 2;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.progress-container:hover .progress-ball,
+.video-container.seeking .progress-ball {
+    transform: translate(-50%, -50%) scale(1);
+}
+.progress-ball:hover { transform: translate(-50%, -50%) scale(1.2); }
+
+/* Fullscreen */
+.video-container.fullscreen {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    z-index: 999999 !important;
+}
+.video-container.fullscreen .player-controls-overlay { height: 64px; padding: 0 24px; }
+.video-container.fullscreen .player-control-btn svg,
+.video-container.fullscreen .live-btn svg { width: 28px; height: 28px; }
+.video-container.fullscreen .progress-bar { height: 5px; }
+.video-container.fullscreen .progress-container:hover .progress-bar,
+.video-container.fullscreen.seeking .progress-bar { height: 8px; }
+.video-container.fullscreen .progress-ball { width: 18px; height: 18px; }
+.video-container.fullscreen .video-controls { top: 16px; left: 16px; right: 16px; }
+.video-container.fullscreen .control-btn { width: 40px; height: 40px; }
+.video-container.fullscreen .control-btn svg { width: 18px; height: 18px; }
+.video-container.fullscreen .resize-handle,
+.video-container.fullscreen .hover-outline-edge { display: none; }
+
+/* Drag/resize states */
+.video-container.dragging .player-controls-overlay,
+.video-container.resizing .player-controls-overlay {
+    pointer-events: none; opacity: 0;
+}
+
+/* Click overlay to prevent YouTube catching clicks below controls */
+.player-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 48px;
+    z-index: 5; cursor: pointer;
+}
+.video-container:hover .player-wrapper::after { bottom: 48px; }
+.player-wrapper { cursor: pointer; }
