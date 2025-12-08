@@ -64,7 +64,6 @@ function snapToGrid(value, fineSnap = false) {
     return Math.round(value / size) * size;
 }
 
-// Robust YouTube ID extractor
 function getYouTubeVideoId(input) {
     if (!input) return null;
     const trimmed = input.trim();
@@ -88,7 +87,6 @@ function getYouTubeVideoId(input) {
     if (hostname.endsWith('youtube.com')) {
         const vParam = url.searchParams.get('v');
         if (vParam && /^[a-zA-Z0-9_-]{11}$/.test(vParam)) return vParam;
-
         if (segments.length >= 2) {
             const known = ['embed', 'shorts', 'live', 'v'];
             if (known.includes(segments[0])) {
@@ -103,7 +101,6 @@ function getYouTubeVideoId(input) {
     return match && match[1] ? match[1] : null;
 }
 
-// Find videos with similar sizes for snapping
 function findSimilarSizes(currentVideo, targetWidth, targetHeight) {
     const similar = [];
     allVideos.forEach((video) => {
@@ -149,7 +146,9 @@ function focusVideo(container) {
     bringToFront(container);
 }
 
-// Lock icon path only (no tooltip text)
+// ========================
+// Top Controls (Move/Lock/Delete/Copy)
+// ========================
 function setLockIcon(button, locked) {
     const path = button.querySelector('svg path');
     if (!path) return;
@@ -165,25 +164,45 @@ function setLockIcon(button, locked) {
         button.classList.remove('locked');
     }
 }
+
 function lockVideo(container, lockButton) {
-    container.classList.add('locked'); setLockIcon(lockButton, true);
+    container.classList.add('locked');
+    setLockIcon(lockButton, true);
 }
 function unlockVideo(container, lockButton) {
-    container.classList.remove('locked'); setLockIcon(lockButton, false); bringToFront(container);
+    container.classList.remove('locked');
+    setLockIcon(lockButton, false);
+    bringToFront(container);
 }
 
-// ========================
-// Control Button Creation
-// ========================
+async function copyTextToClipboard(text) {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch {}
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch {}
+    document.body.removeChild(ta);
+    return ok;
+}
+
 function createControlButton(type, container) {
     const button = document.createElement('div');
     button.className = `control-btn ${type}-btn`;
 
     if (type === 'lock') {
         button.classList.add('lock-btn');
-        button.innerHTML = `
-            <svg viewBox="0 0 24 24" class="lock-icon"><path></path></svg>
-        `;
+        button.innerHTML = `<svg viewBox="0 0 24 24" class="lock-icon"><path></path></svg>`;
         setLockIcon(button, isLocked(container));
         button.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -200,26 +219,52 @@ function createControlButton(type, container) {
             </svg>
         `;
         button.addEventListener('mousedown', (e) => { e.stopPropagation(); startMove(e, container); });
-    } else if (type === 'delete') {
+        return button;
+    }
+
+    if (type === 'copy') {
+        // "C" icon, professional stroked glyph
+        button.classList.add('copy-btn');
+        button.innerHTML = `
+         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFFFFF">
+  <path d="M15 1H4C2.9 1 2 1.9 2 3v12h2V3h11V1z"/>
+  <path d="M17 5H7C5.9 5 5 5.9 5 7v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H7V7h10v14z"/>
+</svg>
+        `;
+        button.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const id = container.dataset.videoId;
+            if (!id) return;
+            const shortUrl = `https://youtu.be/${id}`;
+            const ok = await copyTextToClipboard(shortUrl);
+            // brief visual feedback
+            button.classList.add('copied');
+            setTimeout(() => button.classList.remove('copied'), 900);
+        });
+        return button;
+    }
+
+    if (type === 'delete') {
         button.innerHTML = `
             <svg viewBox="0 0 24 24">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
         `;
         button.addEventListener('click', (e) => { e.stopPropagation(); removeVideo(container); });
+        return button;
     }
 
     return button;
 }
 
 // ================================
-// Custom Player Controls Creation
+// Bottom Player Controls
 // ================================
 function createPlayerControls(container, playerId) {
     const controlsOverlay = document.createElement('div');
     controlsOverlay.className = 'player-controls-overlay';
 
-    // Left controls: Play/Pause + Volume
+    // Left: play/pause, volume
     const leftControls = document.createElement('div');
     leftControls.className = 'player-controls-left';
 
@@ -250,7 +295,7 @@ function createPlayerControls(container, playerId) {
     leftControls.appendChild(playPauseBtn);
     leftControls.appendChild(volumeControl);
 
-    // Middle: Progress
+    // Middle: progress
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
     const progressBar = document.createElement('div');
@@ -266,16 +311,20 @@ function createPlayerControls(container, playerId) {
     progressBar.appendChild(progressBall);
     progressContainer.appendChild(progressBar);
 
-    // Right: LIVE (broadcast) + Fullscreen
+    // Right: live, fullscreen
     const rightControls = document.createElement('div');
     rightControls.className = 'player-controls-right';
 
     const liveBtn = document.createElement('button');
     liveBtn.className = 'live-btn';
     liveBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0 0 48 48">
-<circle cx="24" cy="24" r="6" fill="#f44336"></circle><path fill="#f44336" d="M17.09,16.789L14.321,13.9C11.663,16.448,10,20.027,10,24s1.663,7.552,4.321,10.1l2.769-2.889 C15.19,29.389,14,26.833,14,24C14,21.167,15.19,18.61,17.09,16.789z"></path><path fill="#f44336" d="M33.679,13.9l-2.769,2.889C32.81,18.611,34,21.167,34,24c0,2.833-1.19,5.389-3.09,7.211l2.769,2.889 C36.337,31.552,38,27.973,38,24S36.337,16.448,33.679,13.9z"></path><g><path fill="#f44336" d="M11.561,11.021l-2.779-2.9C4.605,12.125,2,17.757,2,24s2.605,11.875,6.782,15.879l2.779-2.9 C8.142,33.701,6,29.1,6,24S8.142,14.299,11.561,11.021z"></path><path fill="#f44336" d="M39.218,8.121l-2.779,2.9C39.858,14.299,42,18.9,42,24s-2.142,9.701-5.561,12.979l2.779,2.9 C43.395,35.875,46,30.243,46,24S43.395,12.125,39.218,8.121z"></path></g>
-</svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 8a4 4 0 110 8 4 4 0 010-8z"/>
+            <path d="M2.1 12a9.9 9.9 0 013.1-7.2l1.4 1.4A7.9 7.9 0 004 12c0 2.2.9 4.2 2.6 5.7l-1.4 1.4A9.9 9.9 0 012.1 12z"/>
+            <path d="M21.9 12a9.9 9.9 0 01-3.1 7.2l-1.4-1.4A7.9 7.9 0 0020 12c0-2.2-.9-4.2-2.6-5.7l1.4-1.4A9.9 9.9 0 0121.9 12z"/>
+            <path d="M7.8 7.8l1.4 1.4A3.9 3.9 0 008 12c0 1.1.4 2.2 1.2 3l-1.4 1.4A5.9 5.9 0 016 12c0-1.6.6-3.1 1.8-4.2z"/>
+            <path d="M16.2 16.2A3.9 3.9 0 0016 12c0-1.1-.4-2.2-1.2-3l1.4-1.4A5.9 5.9 0 0118 12c0 1.6-.6 3.1-1.8 4.2l-1.4-1.4z"/>
+        </svg>
     `;
 
     const fullscreenBtn = document.createElement('button');
@@ -288,6 +337,7 @@ function createPlayerControls(container, playerId) {
     rightControls.appendChild(liveBtn);
     rightControls.appendChild(fullscreenBtn);
 
+    // Assemble
     controlsOverlay.appendChild(leftControls);
     controlsOverlay.appendChild(progressContainer);
     controlsOverlay.appendChild(rightControls);
@@ -346,6 +396,9 @@ function createPlayerControls(container, playerId) {
     return controlsOverlay;
 }
 
+// ========================
+// Player Control Functions
+// ========================
 function togglePlayPause(playerId) {
     const player = players[playerId];
     if (!player) return;
@@ -395,18 +448,14 @@ function updateVolumeUI(playerId) {
         volumeSlider.value = isMuted ? 0 : volume;
     } catch {}
 }
-
 function seekToLive(playerId) {
     const player = players[playerId];
     if (!player) return;
     try {
         const duration = player.getDuration();
         player.seekTo(Math.max(0, duration), true);
-    } catch (err) {
-        console.error('Seek to live error:', err);
-    }
+    } catch (err) { console.error('Seek to live error:', err); }
 }
-
 function updatePlayerControls(playerId) {
     const player = players[playerId];
     const container = document.querySelector(`[data-player-id="${playerId}"]`);
@@ -505,7 +554,7 @@ function createVideoContainer(videoId, options = {}) {
     container.style.width = `${width}px`;
     container.style.height = `${height}px`;
 
-    // Player wrapper + target div for YT API
+    // Player wrapper + YT div
     const playerWrapper = document.createElement('div');
     playerWrapper.className = 'player-wrapper';
     const playerDiv = document.createElement('div');
@@ -526,17 +575,19 @@ function createVideoContainer(videoId, options = {}) {
         outline.appendChild(edge);
     });
 
-    // Top controls
+    // Top controls: move, lock, copy, delete
     const controls = document.createElement('div');
     controls.className = 'video-controls';
     const moveBtn = createControlButton('move', container);
     const lockBtn = createControlButton('lock', container);
+    const copyBtn = createControlButton('copy', container);
     const deleteBtn = createControlButton('delete', container);
     controls.appendChild(moveBtn);
     controls.appendChild(lockBtn);
+    controls.appendChild(copyBtn);
     controls.appendChild(deleteBtn);
 
-    // Bottom (custom player controls)
+    // Bottom controls
     const playerControls = createPlayerControls(container, playerId);
 
     // Resize handles
@@ -596,10 +647,10 @@ function initYouTubePlayer(playerId, videoId, width, height) {
             videoId: videoId,
             playerVars: {
                 autoplay: 0,
-                controls: 0, // hide native controls
+                controls: 0, // custom controls
                 modestbranding: 1,
                 rel: 0,
-                fs: 0, // we'll handle fullscreen
+                fs: 0, // we handle fullscreen
                 playsinline: 1,
                 disablekb: 1,
                 iv_load_policy: 3
@@ -737,14 +788,14 @@ function handleResize(e) {
     if (resizeDirection.includes('s')) newHeight = Math.max(MIN_HEIGHT, startHeight + deltaY);
     if (resizeDirection.includes('n')) { newHeight = Math.max(MIN_HEIGHT, startHeight - deltaY); newTop = startTop + deltaY; }
 
-    // Maintain 16:9 to avoid any internal gaps
+    // Maintain 16:9 to avoid internal gaps
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
         newHeight = newWidth / ASPECT_RATIO;
     } else {
         newWidth = newHeight * ASPECT_RATIO;
     }
 
-    // Snap to similar sizes + grid
+    // Snap to similar sizes + small grid
     const snapped = getSnappedSize(currentElement, newWidth, newHeight);
     newWidth = snapToGrid(snapped.width);
     newHeight = snapToGrid(snapped.height);
@@ -769,12 +820,10 @@ function handleResize(e) {
         currentElement.style.top = `${newTop}px`;
     }
 
-    // Update YouTube player size live to avoid black space
+    // Update YT player size live
     const playerId = currentElement.dataset.playerId;
     const player = players[playerId];
-    if (player && player.setSize) {
-        try { player.setSize(newWidth, newHeight); } catch {}
-    }
+    if (player && player.setSize) { try { player.setSize(newWidth, newHeight); } catch {} }
 }
 function stopResize() {
     if (!isResizing || !currentElement) return;
@@ -798,7 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!urlInput || !searchPanel) return;
 
-    // Re-enable clicking the plus icon to toggle the URL popup
+    // Click the plus icon to toggle the add-video popup
     if (floatingIcon) {
         floatingIcon.style.cursor = 'pointer';
         floatingIcon.addEventListener('click', (e) => {
@@ -809,26 +858,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Keyboard: '/' opens the add-video panel; Esc closes it
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         const activeTag = (document.activeElement && document.activeElement.tagName) || '';
-        const isTyping = ['INPUT', 'TEXTAREA'].includes(activeTag);
-        if (e.key === '/' && !isTyping) {
+        const typing = ['INPUT', 'TEXTAREA'].includes(activeTag);
+        if (e.key === '/' && !typing) {
             e.preventDefault();
             searchPanel.style.display = 'block';
             urlInput.focus();
         }
-        if (e.key === 'Escape') {
-            searchPanel.style.display = 'none';
-        }
+        if (e.key === 'Escape') searchPanel.style.display = 'none';
     });
 
-    // Enter to add video when focused in the input
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') addVideo();
-    });
+    // Enter to add video
+    urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addVideo(); });
 
-    // Clicking outside closes the panel (but not when clicking the plus icon)
+    // Close when clicking outside (not when clicking the plus icon)
     document.addEventListener('click', (e) => {
         if (!searchPanel.contains(e.target) && !(floatingIcon && floatingIcon.contains(e.target))) {
             searchPanel.style.display = 'none';
