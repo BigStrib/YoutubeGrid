@@ -42,10 +42,7 @@ body {
     fill: #cccccc;
     transition: all 0.2s ease;
 }
-#floatingIcon:hover .add-icon { fill: #ffff;}
-
-
-	
+#floatingIcon:hover .add-icon { fill: #fff; }
 
 /* Search panel */
 #searchPanel {
@@ -142,7 +139,7 @@ body {
 .hover-outline-right { top: 0; bottom: 0; right: 0; width: 25px; }
 
 /* Show black edge on hover only */
-.video-container:hover .hover-outline-edge { opacity: 1;}
+.video-container:hover .hover-outline-edge { opacity: 1; }
 /* Hide the black edge while dragging or resizing */
 .video-container.dragging .hover-outline-edge,
 .video-container.resizing .hover-outline-edge {
@@ -150,7 +147,7 @@ body {
     background-color: transparent !important;
 }
 
-/* Top control buttons: move, lock, copy (C), delete */
+/* Top control buttons: move, lock, copy, delete */
 .video-controls {
     position: absolute;
     top: 8px;
@@ -164,7 +161,16 @@ body {
     z-index: 20;
 }
 .video-container:hover .video-controls { opacity: 1; }
-.video-controls .delete-btn { margin-left: auto; }
+
+/* Copy button pushes itself and delete to the right */
+.video-controls .copy-btn { 
+    margin-left: auto;
+}
+
+/* Delete button stays next to copy (no auto margin) */
+.video-controls .delete-btn { 
+    margin-left: 0;
+}
 
 .control-btn {
     width: 32px; height: 32px;
@@ -176,6 +182,7 @@ body {
     transition: all 0.2s ease;
     backdrop-filter: blur(8px);
     position: relative;
+    flex-shrink: 0;
 }
 .control-btn svg { width: 14px; height: 14px; fill: #ccc; }
 .control-btn:hover {
@@ -239,30 +246,64 @@ body {
 
 /* Bottom custom player controls */
 .player-controls-overlay {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 48px;
+    position: absolute; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    height: 48px;
     background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7), transparent);
-    display: flex; align-items: center; padding: 0 10px; gap: 8px;
-    opacity: 0; transition: opacity 0.3s ease; z-index: 15; pointer-events: none;
+    display: flex; 
+    align-items: center; 
+    padding: 0 10px; 
+    gap: 8px;
+    opacity: 0; 
+    transition: opacity 0.3s ease; 
+    z-index: 15; 
+    pointer-events: none;
 }
 .video-container:hover .player-controls-overlay,
 .video-container.seeking .player-controls-overlay,
 .video-container.fullscreen .player-controls-overlay {
     opacity: 1; pointer-events: auto;
 }
-.player-controls-left, .player-controls-right {
-    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+
+/* Left controls - play, volume etc */
+.player-controls-left {
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    flex-shrink: 0;
 }
+
+/* Right controls - ALWAYS FAR RIGHT, NEVER SHRINK */
+.player-controls-right {
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    flex-shrink: 0;
+}
+
 .player-control-btn, .live-btn {
-    background: none; border: none; padding: 6px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; opacity: 0.9; border-radius: 4px;
+    background: none; 
+    border: none; 
+    padding: 6px; 
+    cursor: pointer;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    color: #fff; 
+    opacity: 0.9; 
+    border-radius: 4px;
     transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    flex-shrink: 0;
 }
 .player-control-btn:hover, .live-btn:hover {
-    opacity: 1; background: rgba(255,255,255,0.12); transform: translateY(-1px);
+    opacity: 1; 
+    background: rgba(255,255,255,0.12); 
+    transform: translateY(-1px);
 }
 .player-control-btn svg, .live-btn svg { width: 22px; height: 22px; display: block; fill: #fff; }
-.live-btn svg { fill:#b00; }
+.live-btn svg { fill: #b00; }
 
 /* Volume control */
 .volume-control { display: flex; align-items: center; gap: 4px; position: relative; }
@@ -285,13 +326,32 @@ body {
 .volume-slider::-moz-range-thumb:hover { transform: scale(1.2); }
 .volume-slider::-moz-range-track { background: rgba(255,255,255,0.3); border-radius: 2px; height: 4px; }
 
-/* Progress bar */
-.progress-container { flex: 1; display: flex; align-items: center; padding: 10px 0; cursor: pointer; min-width: 50px; }
-.progress-bar {
-    position: relative; width: 100%; height: 4px;
-    background: rgba(255,255,255,0.25); border-radius: 2px; transition: height 0.15s ease;
+/* Progress bar - CONTAINED WITH PADDING FOR BALL */
+.progress-container { 
+    display: flex; 
+    align-items: center; 
+    padding: 10px 7px;   /* Horizontal padding for ball visibility */
+    cursor: pointer; 
+    flex: 1 1 auto;
+    min-width: 50px;
+    overflow: visible;   /* Allow ball to be visible */
+    position: relative;
 }
-.progress-container:hover .progress-bar, .video-container.seeking .progress-bar { height: 6px; }
+
+/* Progress bar inner elements */
+.progress-bar {
+    position: relative; 
+    width: 100%; 
+    height: 4px;
+    background: rgba(255,255,255,0.25); 
+    border-radius: 2px; 
+    transition: height 0.15s ease;
+    overflow: visible;   /* Allow ball to extend outside */
+}
+.progress-container:hover .progress-bar, 
+.video-container.seeking .progress-bar { 
+    height: 6px; 
+}
 .progress-buffered {
     position: absolute; top: 0; left: 0; height: 100%;
     background: rgba(255,255,255,0.4); border-radius: 2px; width: 0%; transition: width 0.1s linear;
@@ -301,13 +361,26 @@ body {
     background: #b00; border-radius: 2px; width: 0%; z-index: 1;
 }
 .progress-ball {
-    position: absolute; top: 50%; left: 0%;
-    width: 14px; height: 14px; background: rgba(90,42,42,0.95); border-radius: 50%;
-    transform: translate(-50%, -50%) scale(0); transition: transform 0.15s ease; z-index: 2;
+    position: absolute; 
+    top: 50%; 
+    left: 0%;
+    width: 14px; 
+    height: 14px; 
+    background: rgba(90,42,42,0.95); 
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0); 
+    transition: transform 0.15s ease; 
+    z-index: 2;
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    pointer-events: auto;
 }
-.progress-container:hover .progress-ball, .video-container.seeking .progress-ball { transform: translate(-50%, -50%) scale(1); }
-.progress-ball:hover { transform: translate(-50%, -50%) scale(1.2); }
+.progress-container:hover .progress-ball, 
+.video-container.seeking .progress-ball { 
+    transform: translate(-50%, -50%) scale(1); 
+}
+.progress-ball:hover { 
+    transform: translate(-50%, -50%) scale(1.2); 
+}
 
 /* Fullscreen */
 .video-container.fullscreen {
@@ -315,17 +388,22 @@ body {
     width: 100vw !important; height: 100vh !important; z-index: 999999 !important;
 }
 .video-container.fullscreen .player-controls-overlay { height: 64px; padding: 0 24px; }
-.video-container.fullscreen .player-control-btn svg, .video-container.fullscreen .live-btn svg { width: 28px; height: 28px; }
+.video-container.fullscreen .player-control-btn svg, 
+.video-container.fullscreen .live-btn svg { width: 28px; height: 28px; }
 .video-container.fullscreen .progress-bar { height: 5px; }
-.video-container.fullscreen .progress-container:hover .progress-bar, .video-container.fullscreen.seeking .progress-bar { height: 8px; }
+.video-container.fullscreen .progress-container:hover .progress-bar, 
+.video-container.fullscreen.seeking .progress-bar { height: 8px; }
 .video-container.fullscreen .progress-ball { width: 18px; height: 18px; }
+.video-container.fullscreen .progress-container { padding: 10px 9px; }
 .video-container.fullscreen .video-controls { top: 16px; left: 16px; right: 16px; }
 .video-container.fullscreen .control-btn { width: 40px; height: 40px; }
 .video-container.fullscreen .control-btn svg { width: 18px; height: 18px; }
-.video-container.fullscreen .resize-handle, .video-container.fullscreen .hover-outline-edge { display: none; }
+.video-container.fullscreen .resize-handle, 
+.video-container.fullscreen .hover-outline-edge { display: none; }
 
 /* Drag/resize states */
-.video-container.dragging .player-controls-overlay, .video-container.resizing .player-controls-overlay {
+.video-container.dragging .player-controls-overlay, 
+.video-container.resizing .player-controls-overlay {
     pointer-events: none; opacity: 0;
 }
 
