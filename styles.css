@@ -142,7 +142,7 @@ body {
 .hover-outline-right { top: 0; bottom: 0; right: 0; width: 25px; }
 
 /* Show black edge on hover only */
-.video-container:hover .hover-outline-edge { opacity: 1; background-color: #; }
+.video-container:hover .hover-outline-edge { opacity: 1;}
 /* Hide the black edge while dragging or resizing */
 .video-container.dragging .hover-outline-edge,
 .video-container.resizing .hover-outline-edge {
@@ -276,7 +276,9 @@ body {
     -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
     background: #fff; border-radius: 50%; cursor: pointer; transition: transform 0.15s ease;
 }
-.volume-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.volume-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+}
 .volume-slider::-moz-range-thumb {
     width: 12px; height: 12px; background: #fff; border: none; border-radius: 50%; cursor: pointer; transition: transform 0.15s ease;
 }
