@@ -162,6 +162,11 @@ body {
 }
 .video-container:hover .video-controls { opacity: 1; }
 
+/* Hide controls while resizing */
+.video-container.resizing .video-controls {
+    opacity: 0 !important;
+}
+
 /* Copy button pushes itself and delete to the right */
 .video-controls .copy-btn { 
     margin-left: auto;
@@ -227,25 +232,30 @@ body {
 .resize-ne { top: -6px; right: -6px; width: 12px; height: 12px; cursor: ne-resize; }
 .resize-nw { top: -6px; left: -6px; width: 12px; height: 12px; cursor: nw-resize; }
 
-/* Size indicator (top-right) */
+/* Size indicator - CENTERED ON VIDEO TOP */
 .size-indicator {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
     background: rgba(0,0,0,0.9);
     color: #cccccc;
-    padding: 8px 12px;
+    padding: 6px 12px;
     border-radius: 4px;
     font-size: 12px;
     font-family: monospace;
-    z-index: 10001;
+    z-index: 30;
     display: none;
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,0.1);
+    pointer-events: none;
+    white-space: nowrap;
 }
 
-/* Never show grid overlay */
-#gridOverlay { display: none !important; }
+/* Show size indicator only when resizing */
+.video-container.resizing .size-indicator {
+    display: block;
+}
 
 /* Bottom custom player controls */
 .player-controls-overlay {
@@ -613,4 +623,91 @@ body {
 
 .player-wrapper { 
     cursor: pointer; 
+}
+
+/* ========================================
+   DELETE CONFIRMATION POPUP - SIMPLE
+   ======================================== */
+.delete-confirm-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    animation: fadeIn 0.15s ease forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+.delete-confirm-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.delete-confirm-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.delete-confirm-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.delete-confirm-btn.cancel {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.delete-confirm-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.1);
+}
+
+.delete-confirm-btn.cancel svg {
+    fill: #fff;
+}
+
+.delete-confirm-btn.confirm {
+    background: rgba(139, 0, 0, 0.6);
+    border-color: #b00;
+}
+
+.delete-confirm-btn.confirm:hover {
+    background: rgba(180, 0, 0, 0.8);
+    border-color: #ff4444;
+    transform: scale(1.1);
+    box-shadow: 0 0 12px rgba(180, 0, 0, 0.5);
+}
+
+.delete-confirm-btn.confirm svg {
+    fill: #ff6666;
+}
+
+.delete-confirm-btn.confirm:hover svg {
+    fill: #fff;
+}
+
+/* Hide other controls when confirmation is showing */
+.video-container.confirming-delete .video-controls,
+.video-container.confirming-delete .player-controls-overlay,
+.video-container.confirming-delete .resize-handle {
+    opacity: 0 !important;
+    pointer-events: none !important;
 }

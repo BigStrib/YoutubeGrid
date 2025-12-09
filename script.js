@@ -131,15 +131,11 @@ function getSnappedSize(currentVideo, width, height) {
     return { width: closest.width, height: closest.height };
 }
 
-function updateSizeIndicator(width, height, show = true) {
-    const indicator = document.getElementById('sizeIndicator');
+function updateSizeIndicator(container, width, height) {
+    if (!container) return;
+    const indicator = container.querySelector('.size-indicator');
     if (!indicator) return;
-    if (show) {
-        indicator.textContent = `${Math.round(width)} × ${Math.round(height)}`;
-        indicator.style.display = 'block';
-    } else {
-        indicator.style.display = 'none';
-    }
+    indicator.textContent = `${Math.round(width)} × ${Math.round(height)}`;
 }
 
 function bringToFront(container) {
@@ -152,11 +148,97 @@ function focusVideo(container) {
 }
 
 // ========================
-// Volume Slider Background Update
+// Volume Slider Background Update (Red Fill)
 // ========================
 function updateVolumeSliderBackground(slider, value) {
     const percent = clampPercent(value);
     slider.style.background = `linear-gradient(to right, #b00 0%, #b00 ${percent}%, rgba(255,255,255,0.3) ${percent}%, rgba(255,255,255,0.3) 100%)`;
+}
+
+// ========================
+// Delete Confirmation Popup
+// ========================
+// ========================
+// Delete Confirmation Popup
+// ========================
+function showDeleteConfirmation(container) {
+    // Check if already showing confirmation
+    if (container.querySelector('.delete-confirm-overlay')) return;
+    
+    container.classList.add('confirming-delete');
+    bringToFront(container);
+    
+    // Pause video while confirming
+    const playerId = container.dataset.playerId;
+    const player = players[playerId];
+    if (player) {
+        try { player.pauseVideo(); } catch {}
+    }
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'delete-confirm-overlay';
+    
+    overlay.innerHTML = `
+        <div class="delete-confirm-content">
+            <button class="delete-confirm-btn cancel" title="Cancel">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+            <button class="delete-confirm-btn confirm" title="Remove">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(overlay);
+    
+    // Cancel button
+    const cancelBtn = overlay.querySelector('.cancel');
+    cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideDeleteConfirmation(container);
+    });
+    
+    // Confirm button
+    const confirmBtn = overlay.querySelector('.confirm');
+    confirmBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeVideo(container);
+    });
+    
+    // Click outside to cancel
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            hideDeleteConfirmation(container);
+        }
+    });
+    
+    // Escape key to cancel
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            hideDeleteConfirmation(container);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+    
+    // Store handler reference for cleanup
+    overlay._escHandler = escHandler;
+}
+
+function hideDeleteConfirmation(container) {
+    const overlay = container.querySelector('.delete-confirm-overlay');
+    if (overlay) {
+        // Remove escape handler
+        if (overlay._escHandler) {
+            document.removeEventListener('keydown', overlay._escHandler);
+        }
+        overlay.remove();
+    }
+    container.classList.remove('confirming-delete');
 }
 
 // ========================
@@ -261,7 +343,10 @@ function createControlButton(type, container) {
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
         `;
-        button.addEventListener('click', (e) => { e.stopPropagation(); removeVideo(container); });
+        button.addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            showDeleteConfirmation(container);
+        });
         return button;
     }
 
@@ -306,7 +391,6 @@ function createPlayerControls(container, playerId) {
     volumeSlider.max = '100'; 
     volumeSlider.value = '100';
     
-    // Set initial red fill
     updateVolumeSliderBackground(volumeSlider, 100);
     
     volumeSliderContainer.appendChild(volumeSlider);
@@ -430,13 +514,9 @@ function createPlayerControls(container, playerId) {
         const rect = progressBar.getBoundingClientRect();
         const barWidth = rect.width;
         
-        // Calculate position relative to progress bar
         let offsetX = e.clientX - rect.left;
-        
-        // Clamp to bar bounds
         offsetX = Math.max(0, Math.min(offsetX, barWidth));
         
-        // Calculate percent (0-100) and clamp
         let percent = (offsetX / barWidth) * 100;
         percent = clampPercent(percent);
         
@@ -446,7 +526,6 @@ function createPlayerControls(container, playerId) {
             const seekTime = duration * (percent / 100);
             player.seekTo(seekTime, true);
             
-            // Update visuals with clamped values
             progressFilled.style.width = `${percent}%`;
             progressBall.style.left = `${percent}%`;
         }
@@ -568,7 +647,6 @@ function updatePlayerControls(playerId) {
     const progressBall = controlsOverlay._progressBall;
 
     try {
-        // Play/pause icon
         const state = player.getPlayerState();
         const playIcon = playPauseBtn.querySelector('.play-icon');
         const pauseIcon = playPauseBtn.querySelector('.pause-icon');
@@ -580,25 +658,20 @@ function updatePlayerControls(playerId) {
             pauseIcon.style.display = 'none';
         }
 
-        // Progress - CLAMPED
         const currentTime = player.getCurrentTime() || 0;
         const duration = player.getDuration() || 0;
         if (duration > 0) {
             let percent = (currentTime / duration) * 100;
-            
-            // CLAMP percent between 0 and 100
             percent = clampPercent(percent);
             
             progressFilled.style.width = `${percent}%`;
             progressBall.style.left = `${percent}%`;
             
-            // Buffered - also clamped
             let buffered = (player.getVideoLoadedFraction() || 0) * 100;
             buffered = clampPercent(buffered);
             progressBuffered.style.width = `${buffered}%`;
         }
 
-        // Volume
         updateVolumeUI(playerId);
     } catch {}
 }
@@ -682,6 +755,11 @@ function createVideoContainer(videoId, options = {}) {
         outline.appendChild(edge);
     });
 
+    // Size indicator
+    const sizeIndicator = document.createElement('div');
+    sizeIndicator.className = 'size-indicator';
+    sizeIndicator.textContent = `${width} × ${height}`;
+
     // Top controls: move, lock, copy, delete
     const controls = document.createElement('div');
     controls.className = 'video-controls';
@@ -707,6 +785,7 @@ function createVideoContainer(videoId, options = {}) {
 
     container.appendChild(playerWrapper);
     container.appendChild(outline);
+    container.appendChild(sizeIndicator);
     container.appendChild(controls);
     container.appendChild(playerControls);
 
@@ -728,6 +807,8 @@ function createVideoContainer(videoId, options = {}) {
     // Click surface toggles play/pause
     playerWrapper.addEventListener('click', () => {
         if (isLocked(container)) return;
+        // Don't toggle if confirming delete
+        if (container.classList.contains('confirming-delete')) return;
         const player = players[playerId];
         if (!player) return;
         try {
@@ -925,7 +1006,7 @@ function handleResize(e) {
     newWidth = snapToGrid(snapped.width);
     newHeight = snapToGrid(snapped.height);
 
-    updateSizeIndicator(newWidth, newHeight);
+    updateSizeIndicator(currentElement, newWidth, newHeight);
 
     const maxX = window.innerWidth - newWidth;
     const maxY = window.innerHeight - newHeight;
@@ -961,7 +1042,6 @@ function stopResize() {
 
     document.removeEventListener('mousemove', handleResize);
     document.removeEventListener('mouseup', stopResize);
-    updateSizeIndicator(0, 0, false);
 }
 
 // ===============
