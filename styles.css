@@ -113,7 +113,7 @@ body {
 .video-container.dragging { cursor: move; }
 .video-container.resizing { transition: none; }
 
-/* Player wrapper and iframe fill the container (no gaps) */
+/* Player wrapper and iframe fill the container (no gaps!) */
 .player-wrapper,
 .youtube-player,
 .player-wrapper iframe {
@@ -413,4 +413,5 @@ body {
     z-index: 5; cursor: pointer;
 }
 .video-container:hover .player-wrapper::after { bottom: 48px; }
+
 .player-wrapper { cursor: pointer; }
