@@ -113,7 +113,7 @@ body {
 .video-container.dragging { cursor: move; }
 .video-container.resizing { transition: none; }
 
-/* Player wrapper and iframe fill the container (no gaps!) */
+/* Player wrapper and iframe fill the container (no gaps) */
 .player-wrapper,
 .youtube-player,
 .player-wrapper iframe {
@@ -173,12 +173,15 @@ body {
 }
 
 .control-btn {
-    width: 32px; height: 32px;
+    width: 32px; 
+    height: 32px;
     background: rgba(0,0,0,0.9);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px;
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
     transition: all 0.2s ease;
     backdrop-filter: blur(8px);
     position: relative;
@@ -264,7 +267,8 @@ body {
 .video-container:hover .player-controls-overlay,
 .video-container.seeking .player-controls-overlay,
 .video-container.fullscreen .player-controls-overlay {
-    opacity: 1; pointer-events: auto;
+    opacity: 1; 
+    pointer-events: auto;
 }
 
 /* Left controls - play, volume etc */
@@ -302,40 +306,136 @@ body {
     background: rgba(255,255,255,0.12); 
     transform: translateY(-1px);
 }
-.player-control-btn svg, .live-btn svg { width: 22px; height: 22px; display: block; fill: #fff; }
+.player-control-btn svg, .live-btn svg { 
+    width: 22px; 
+    height: 22px; 
+    display: block; 
+    fill: #fff; 
+}
 .live-btn svg { fill: #b00; }
 
-/* Volume control */
-.volume-control { display: flex; align-items: center; gap: 4px; position: relative; }
-.volume-slider-container { width: 0; overflow: hidden; transition: width 0.2s ease; display: flex; align-items: center; }
-.volume-control:hover .volume-slider-container, .volume-slider-container.active { width: 60px; }
-.volume-slider {
-    -webkit-appearance: none; appearance: none; width: 60px; height: 4px;
-    background: rgba(255,255,255,0.3); border-radius: 2px; outline: none; cursor: pointer;
+/* ========================================
+   VOLUME CONTROL - HIDDEN UNTIL HOVER
+   ======================================== */
+.volume-control { 
+    display: flex; 
+    align-items: center; 
+    gap: 4px; 
+    position: relative; 
 }
-.volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
-    background: #fff; border-radius: 50%; cursor: pointer; transition: transform 0.15s ease;
-}
-.volume-slider:hover::-webkit-slider-thumb {
-    transform: scale(1.2);
-}
-.volume-slider::-moz-range-thumb {
-    width: 12px; height: 12px; background: #fff; border: none; border-radius: 50%; cursor: pointer; transition: transform 0.15s ease;
-}
-.volume-slider::-moz-range-thumb:hover { transform: scale(1.2); }
-.volume-slider::-moz-range-track { background: rgba(255,255,255,0.3); border-radius: 2px; height: 4px; }
 
-/* Progress bar - CONTAINED WITH PADDING FOR BALL */
+.volume-slider-container { 
+    width: 0; 
+    overflow: hidden;
+    transition: width 0.2s ease; 
+    display: flex; 
+    align-items: center;
+    padding: 0;
+}
+
+/* Show volume slider only on hover */
+.volume-control:hover .volume-slider-container, 
+.volume-slider-container.active { 
+    width: 60px;
+    padding: 0 7px;
+}
+
+.volume-slider {
+    -webkit-appearance: none; 
+    appearance: none; 
+    width: 60px; 
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px; 
+    outline: none; 
+    cursor: pointer;
+    transition: height 0.15s ease;
+}
+
+.volume-slider:hover {
+    height: 6px;
+}
+
+/* Webkit (Chrome, Safari, Edge) - DARK RED BALL */
+.volume-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    background: transparent;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; 
+    appearance: none; 
+    width: 14px; 
+    height: 14px;
+    background: #8b0000;
+    border: none;
+    border-radius: 50%; 
+    cursor: pointer; 
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    margin-top: -5px;
+    position: relative;
+    z-index: 2;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+.volume-slider::-webkit-slider-thumb:active {
+    transform: scale(1.1);
+    box-shadow: 0 2px 10px rgba(139,0,0,0.6);
+}
+
+/* Firefox - DARK RED BALL */
+.volume-slider::-moz-range-track { 
+    width: 100%;
+    background: rgba(255,255,255,0.3); 
+    border-radius: 2px; 
+    height: 4px; 
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-progress {
+    background: #b00;
+    border-radius: 2px;
+    height: 4px;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 14px; 
+    height: 14px; 
+    background: #8b0000; 
+    border: none; 
+    border-radius: 50%; 
+    cursor: pointer; 
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.volume-slider::-moz-range-thumb:hover { 
+    transform: scale(1.2); 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* ========================================
+   PROGRESS BAR - STRICTLY CONTAINED
+   ======================================== */
 .progress-container { 
     display: flex; 
     align-items: center; 
-    padding: 10px 7px;   /* Horizontal padding for ball visibility */
     cursor: pointer; 
     flex: 1 1 auto;
     min-width: 50px;
-    overflow: visible;   /* Allow ball to be visible */
+    height: 48px;
     position: relative;
+    margin-right: 8px;
+    overflow: hidden;
+    padding: 0 7px;
 }
 
 /* Progress bar inner elements */
@@ -346,72 +446,171 @@ body {
     background: rgba(255,255,255,0.25); 
     border-radius: 2px; 
     transition: height 0.15s ease;
-    overflow: visible;   /* Allow ball to extend outside */
 }
+
 .progress-container:hover .progress-bar, 
 .video-container.seeking .progress-bar { 
     height: 6px; 
 }
+
 .progress-buffered {
-    position: absolute; top: 0; left: 0; height: 100%;
-    background: rgba(255,255,255,0.4); border-radius: 2px; width: 0%; transition: width 0.1s linear;
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    height: 100%;
+    background: rgba(255,255,255,0.4); 
+    border-radius: 2px; 
+    width: 0%; 
+    max-width: 100%;
+    transition: width 0.1s linear;
 }
+
 .progress-filled {
-    position: absolute; top: 0; left: 0; height: 100%;
-    background: #b00; border-radius: 2px; width: 0%; z-index: 1;
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    height: 100%;
+    background: #b00; 
+    border-radius: 2px; 
+    width: 0%; 
+    max-width: 100%;
+    z-index: 1;
 }
+
+/* Progress ball - DARK RED */
 .progress-ball {
     position: absolute; 
     top: 50%; 
-    left: 0%;
+    left: 0;
     width: 14px; 
     height: 14px; 
-    background: rgba(90,42,42,0.95); 
+    background: #8b0000;
+    border: none;
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0); 
-    transition: transform 0.15s ease; 
+    transition: transform 0.15s ease, box-shadow 0.15s ease; 
     z-index: 2;
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     pointer-events: auto;
 }
+
 .progress-container:hover .progress-ball, 
 .video-container.seeking .progress-ball { 
     transform: translate(-50%, -50%) scale(1); 
 }
+
 .progress-ball:hover { 
     transform: translate(-50%, -50%) scale(1.2); 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
-/* Fullscreen */
+/* ========================================
+   FULLSCREEN STYLES
+   ======================================== */
 .video-container.fullscreen {
-    position: fixed !important; top: 0 !important; left: 0 !important;
-    width: 100vw !important; height: 100vh !important; z-index: 999999 !important;
+    position: fixed !important; 
+    top: 0 !important; 
+    left: 0 !important;
+    width: 100vw !important; 
+    height: 100vh !important; 
+    z-index: 999999 !important;
 }
-.video-container.fullscreen .player-controls-overlay { height: 64px; padding: 0 24px; }
+
+.video-container.fullscreen .player-controls-overlay { 
+    height: 64px; 
+    padding: 0 24px; 
+}
+
 .video-container.fullscreen .player-control-btn svg, 
-.video-container.fullscreen .live-btn svg { width: 28px; height: 28px; }
-.video-container.fullscreen .progress-bar { height: 5px; }
+.video-container.fullscreen .live-btn svg { 
+    width: 28px; 
+    height: 28px; 
+}
+
+.video-container.fullscreen .progress-bar { 
+    height: 5px; 
+}
+
 .video-container.fullscreen .progress-container:hover .progress-bar, 
-.video-container.fullscreen.seeking .progress-bar { height: 8px; }
-.video-container.fullscreen .progress-ball { width: 18px; height: 18px; }
-.video-container.fullscreen .progress-container { padding: 10px 9px; }
-.video-container.fullscreen .video-controls { top: 16px; left: 16px; right: 16px; }
-.video-container.fullscreen .control-btn { width: 40px; height: 40px; }
-.video-container.fullscreen .control-btn svg { width: 18px; height: 18px; }
+.video-container.fullscreen.seeking .progress-bar { 
+    height: 8px; 
+}
+
+.video-container.fullscreen .progress-ball { 
+    width: 18px; 
+    height: 18px; 
+}
+
+.video-container.fullscreen .progress-container { 
+    padding: 0 9px; 
+    margin-right: 12px; 
+}
+
+.video-container.fullscreen .video-controls { 
+    top: 16px; 
+    left: 16px; 
+    right: 16px; 
+}
+
+.video-container.fullscreen .control-btn { 
+    width: 40px; 
+    height: 40px; 
+}
+
+.video-container.fullscreen .control-btn svg { 
+    width: 18px; 
+    height: 18px; 
+}
+
 .video-container.fullscreen .resize-handle, 
-.video-container.fullscreen .hover-outline-edge { display: none; }
+.video-container.fullscreen .hover-outline-edge { 
+    display: none; 
+}
+
+.video-container.fullscreen .volume-slider { 
+    width: 80px; 
+}
+
+.video-container.fullscreen .volume-control:hover .volume-slider-container,
+.video-container.fullscreen .volume-slider-container.active { 
+    width: 80px;
+    padding: 0 9px;
+}
+
+.video-container.fullscreen .volume-slider::-webkit-slider-thumb { 
+    width: 18px; 
+    height: 18px; 
+    margin-top: -7px;
+}
+
+.video-container.fullscreen .volume-slider::-moz-range-thumb { 
+    width: 18px; 
+    height: 18px; 
+}
 
 /* Drag/resize states */
 .video-container.dragging .player-controls-overlay, 
 .video-container.resizing .player-controls-overlay {
-    pointer-events: none; opacity: 0;
+    pointer-events: none; 
+    opacity: 0;
 }
 
 /* Prevent iframe from stealing clicks under the bottom controls */
 .player-wrapper::after {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 48px;
-    z-index: 5; cursor: pointer;
+    content: ''; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 48px;
+    z-index: 5; 
+    cursor: pointer;
 }
-.video-container:hover .player-wrapper::after { bottom: 48px; }
 
-.player-wrapper { cursor: pointer; }
+.video-container:hover .player-wrapper::after { 
+    bottom: 48px; 
+}
+
+.player-wrapper { 
+    cursor: pointer; 
+}

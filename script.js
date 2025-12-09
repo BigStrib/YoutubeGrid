@@ -59,6 +59,10 @@ loadYouTubeAPI();
 // ========================
 const isLocked = (container) => container.classList.contains('locked');
 
+function clampPercent(value) {
+    return Math.max(0, Math.min(100, value));
+}
+
 function snapToGrid(value, fineSnap = false) {
     const size = fineSnap ? 5 : GRID_SIZE;
     return Math.round(value / size) * size;
@@ -141,9 +145,18 @@ function updateSizeIndicator(width, height, show = true) {
 function bringToFront(container) {
     container.style.zIndex = ++maxZIndex;
 }
+
 function focusVideo(container) {
     if (isLocked(container)) return;
     bringToFront(container);
+}
+
+// ========================
+// Volume Slider Background Update
+// ========================
+function updateVolumeSliderBackground(slider, value) {
+    const percent = clampPercent(value);
+    slider.style.background = `linear-gradient(to right, #b00 0%, #b00 ${percent}%, rgba(255,255,255,0.3) ${percent}%, rgba(255,255,255,0.3) 100%)`;
 }
 
 // ========================
@@ -169,6 +182,7 @@ function lockVideo(container, lockButton) {
     container.classList.add('locked');
     setLockIcon(lockButton, true);
 }
+
 function unlockVideo(container, lockButton) {
     container.classList.remove('locked');
     setLockIcon(lockButton, false);
@@ -182,7 +196,6 @@ async function copyTextToClipboard(text) {
             return true;
         }
     } catch {}
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
@@ -223,21 +236,19 @@ function createControlButton(type, container) {
     }
 
     if (type === 'copy') {
-        // "C" icon, professional stroked glyph
         button.classList.add('copy-btn');
         button.innerHTML = `
-         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFFFFF">
-  <path d="M15 1H4C2.9 1 2 1.9 2 3v12h2V3h11V1z"/>
-  <path d="M17 5H7C5.9 5 5 5.9 5 7v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H7V7h10v14z"/>
-</svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFFFFF">
+                <path d="M15 1H4C2.9 1 2 1.9 2 3v12h2V3h11V1z"/>
+                <path d="M17 5H7C5.9 5 5 5.9 5 7v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H7V7h10v14z"/>
+            </svg>
         `;
         button.addEventListener('click', async (e) => {
             e.stopPropagation();
             const id = container.dataset.videoId;
             if (!id) return;
             const shortUrl = `https://youtu.be/${id}`;
-            const ok = await copyTextToClipboard(shortUrl);
-            // brief visual feedback
+            await copyTextToClipboard(shortUrl);
             button.classList.add('copied');
             setTimeout(() => button.classList.remove('copied'), 900);
         });
@@ -277,17 +288,27 @@ function createPlayerControls(container, playerId) {
 
     const volumeControl = document.createElement('div');
     volumeControl.className = 'volume-control';
+    
     const volumeBtn = document.createElement('button');
     volumeBtn.className = 'player-control-btn volume-btn';
     volumeBtn.innerHTML = `
         <svg class="volume-high-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/></svg>
         <svg class="volume-mute-icon" viewBox="0 0 24 24" style="display:none;"><path fill="currentColor" d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z"/></svg>
     `;
+    
     const volumeSliderContainer = document.createElement('div');
     volumeSliderContainer.className = 'volume-slider-container';
+    
     const volumeSlider = document.createElement('input');
-    volumeSlider.type = 'range'; volumeSlider.className = 'volume-slider';
-    volumeSlider.min = '0'; volumeSlider.max = '100'; volumeSlider.value = '100';
+    volumeSlider.type = 'range'; 
+    volumeSlider.className = 'volume-slider';
+    volumeSlider.min = '0'; 
+    volumeSlider.max = '100'; 
+    volumeSlider.value = '100';
+    
+    // Set initial red fill
+    updateVolumeSliderBackground(volumeSlider, 100);
+    
     volumeSliderContainer.appendChild(volumeSlider);
     volumeControl.appendChild(volumeBtn);
     volumeControl.appendChild(volumeSliderContainer);
@@ -298,14 +319,19 @@ function createPlayerControls(container, playerId) {
     // Middle: progress
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
+    
     const progressBar = document.createElement('div');
     progressBar.className = 'progress-bar';
+    
     const progressBuffered = document.createElement('div');
     progressBuffered.className = 'progress-buffered';
+    
     const progressFilled = document.createElement('div');
     progressFilled.className = 'progress-filled';
+    
     const progressBall = document.createElement('div');
     progressBall.className = 'progress-ball';
+    
     progressBar.appendChild(progressBuffered);
     progressBar.appendChild(progressFilled);
     progressBar.appendChild(progressBall);
@@ -318,13 +344,13 @@ function createPlayerControls(container, playerId) {
     const liveBtn = document.createElement('button');
     liveBtn.className = 'live-btn';
     liveBtn.innerHTML = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18">
-  <path fill="#f44336" d="M17.09,16.789L14.321,13.9C11.663,16.448,10,20.027,10,24s1.663,7.552,4.321,10.1l2.769-2.889 C15.19,29.389,14,26.833,14,24C14,21.167,15.19,18.61,17.09,16.789z"/>
-  <circle cx="24" cy="24" r="6" fill="#f44336"/>
-  <path fill="#f44336" d="M33.679,13.9l-2.769,2.889C32.81,18.611,34,21.167,34,24c0,2.833-1.19,5.389-3.09,7.211l2.769,2.889 C36.337,31.552,38,27.973,38,24S36.337,16.448,33.679,13.9z"/>
-  <path fill="#f44336" d="M11.561,11.021l-2.779-2.9C4.605,12.125,2,17.757,2,24s2.605,11.875,6.782,15.879l2.779-2.9 C8.142,33.701,6,29.1,6,24S8.142,14.299,11.561,11.021z"/>
-  <path fill="#f44336" d="M39.218,8.121l-2.779,2.9C39.858,14.299,42,18.9,42,24s-2.142,9.701-5.561,12.979l2.779,2.9 C43.395,35.875,46,30.243,46,24S43.395,12.125,39.218,8.121z"/>
-</svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18">
+            <path fill="#f44336" d="M17.09,16.789L14.321,13.9C11.663,16.448,10,20.027,10,24s1.663,7.552,4.321,10.1l2.769-2.889 C15.19,29.389,14,26.833,14,24C14,21.167,15.19,18.61,17.09,16.789z"/>
+            <circle cx="24" cy="24" r="6" fill="#f44336"/>
+            <path fill="#f44336" d="M33.679,13.9l-2.769,2.889C32.81,18.611,34,21.167,34,24c0,2.833-1.19,5.389-3.09,7.211l2.769,2.889 C36.337,31.552,38,27.973,38,24S36.337,16.448,33.679,13.9z"/>
+            <path fill="#f44336" d="M11.561,11.021l-2.779-2.9C4.605,12.125,2,17.757,2,24s2.605,11.875,6.782,15.879l2.779-2.9 C8.142,33.701,6,29.1,6,24S8.142,14.299,11.561,11.021z"/>
+            <path fill="#f44336" d="M39.218,8.121l-2.779,2.9C39.858,14.299,42,18.9,42,24s-2.142,9.701-5.561,12.979l2.779,2.9 C43.395,35.875,46,30.243,46,24S43.395,12.125,39.218,8.121z"/>
+        </svg>
     `;
 
     const fullscreenBtn = document.createElement('button');
@@ -348,6 +374,7 @@ function createPlayerControls(container, playerId) {
     controlsOverlay._volumeBtn = volumeBtn;
     controlsOverlay._volumeSlider = volumeSlider;
     controlsOverlay._volumeSliderContainer = volumeSliderContainer;
+    controlsOverlay._progressContainer = progressContainer;
     controlsOverlay._progressBar = progressBar;
     controlsOverlay._progressFilled = progressFilled;
     controlsOverlay._progressBuffered = progressBuffered;
@@ -356,38 +383,95 @@ function createPlayerControls(container, playerId) {
     controlsOverlay._fullscreenBtn = fullscreenBtn;
 
     // Events
-    playPauseBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); togglePlayPause(playerId); });
-    volumeBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); toggleMute(playerId); });
-    volumeSlider.addEventListener('input', (e) => { e.stopPropagation(); setVolume(playerId, e.target.value); });
-    volumeSlider.addEventListener('mousedown', (e) => { e.stopPropagation(); volumeSliderContainer.classList.add('active'); });
-    document.addEventListener('mouseup', () => { volumeSliderContainer.classList.remove('active'); });
+    playPauseBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        e.preventDefault(); 
+        togglePlayPause(playerId); 
+    });
+    
+    volumeBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        e.preventDefault(); 
+        toggleMute(playerId); 
+    });
+    
+    volumeSlider.addEventListener('input', (e) => { 
+        e.stopPropagation(); 
+        const value = e.target.value;
+        setVolume(playerId, value);
+        updateVolumeSliderBackground(volumeSlider, value);
+    });
+    
+    volumeSlider.addEventListener('mousedown', (e) => { 
+        e.stopPropagation(); 
+        volumeSliderContainer.classList.add('active'); 
+    });
+    
+    document.addEventListener('mouseup', () => { 
+        volumeSliderContainer.classList.remove('active'); 
+    });
 
-    liveBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); seekToLive(playerId); });
-    fullscreenBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); toggleFullscreen(container); });
+    liveBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        e.preventDefault(); 
+        seekToLive(playerId); 
+    });
+    
+    fullscreenBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        e.preventDefault(); 
+        toggleFullscreen(container); 
+    });
 
-    // Seeking
+    // Seeking - with clamping
     let isSeeking = false;
+    
     const handleSeek = (e) => {
         const rect = progressBar.getBoundingClientRect();
-        let percent = (e.clientX - rect.left) / rect.width;
-        percent = Math.max(0, Math.min(1, percent));
+        const barWidth = rect.width;
+        
+        // Calculate position relative to progress bar
+        let offsetX = e.clientX - rect.left;
+        
+        // Clamp to bar bounds
+        offsetX = Math.max(0, Math.min(offsetX, barWidth));
+        
+        // Calculate percent (0-100) and clamp
+        let percent = (offsetX / barWidth) * 100;
+        percent = clampPercent(percent);
+        
         const player = players[playerId];
         if (player && player.getDuration) {
             const duration = player.getDuration();
-            const seekTime = duration * percent;
+            const seekTime = duration * (percent / 100);
             player.seekTo(seekTime, true);
-            progressFilled.style.width = `${percent * 100}%`;
-            progressBall.style.left = `${percent * 100}%`;
+            
+            // Update visuals with clamped values
+            progressFilled.style.width = `${percent}%`;
+            progressBall.style.left = `${percent}%`;
         }
     };
-    progressBar.addEventListener('mousedown', (e) => {
-        e.stopPropagation(); e.preventDefault();
-        isSeeking = true; handleSeek(e);
+    
+    progressContainer.addEventListener('mousedown', (e) => {
+        e.stopPropagation(); 
+        e.preventDefault();
+        isSeeking = true; 
+        handleSeek(e);
         container.classList.add('seeking');
     });
-    document.addEventListener('mousemove', (e) => { if (isSeeking) handleSeek(e); });
+    
+    document.addEventListener('mousemove', (e) => { 
+        if (isSeeking) {
+            e.preventDefault();
+            handleSeek(e); 
+        }
+    });
+    
     document.addEventListener('mouseup', () => {
-        if (isSeeking) { isSeeking = false; container.classList.remove('seeking'); }
+        if (isSeeking) { 
+            isSeeking = false; 
+            container.classList.remove('seeking'); 
+        }
     });
 
     controlsOverlay.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -408,6 +492,7 @@ function togglePlayPause(playerId) {
         else player.playVideo();
     } catch {}
 }
+
 function toggleMute(playerId) {
     const player = players[playerId];
     if (!player) return;
@@ -417,6 +502,7 @@ function toggleMute(playerId) {
         updateVolumeUI(playerId);
     } catch {}
 }
+
 function setVolume(playerId, volume) {
     const player = players[playerId];
     if (!player) return;
@@ -426,6 +512,7 @@ function setVolume(playerId, volume) {
         updateVolumeUI(playerId);
     } catch {}
 }
+
 function updateVolumeUI(playerId) {
     const player = players[playerId];
     const container = document.querySelector(`[data-player-id="${playerId}"]`);
@@ -435,27 +522,38 @@ function updateVolumeUI(playerId) {
 
     const volumeBtn = controlsOverlay._volumeBtn;
     const volumeSlider = controlsOverlay._volumeSlider;
+    
     try {
         const isMuted = player.isMuted();
         const volume = player.getVolume();
         const highIcon = volumeBtn.querySelector('.volume-high-icon');
         const muteIcon = volumeBtn.querySelector('.volume-mute-icon');
+        
         if (isMuted || volume === 0) {
-            highIcon.style.display = 'none'; muteIcon.style.display = 'block';
+            highIcon.style.display = 'none'; 
+            muteIcon.style.display = 'block';
+            volumeSlider.value = 0;
+            updateVolumeSliderBackground(volumeSlider, 0);
         } else {
-            highIcon.style.display = 'block'; muteIcon.style.display = 'none';
+            highIcon.style.display = 'block'; 
+            muteIcon.style.display = 'none';
+            volumeSlider.value = volume;
+            updateVolumeSliderBackground(volumeSlider, volume);
         }
-        volumeSlider.value = isMuted ? 0 : volume;
     } catch {}
 }
+
 function seekToLive(playerId) {
     const player = players[playerId];
     if (!player) return;
     try {
         const duration = player.getDuration();
         player.seekTo(Math.max(0, duration), true);
-    } catch (err) { console.error('Seek to live error:', err); }
+    } catch (err) { 
+        console.error('Seek to live error:', err); 
+    }
 }
+
 function updatePlayerControls(playerId) {
     const player = players[playerId];
     const container = document.querySelector(`[data-player-id="${playerId}"]`);
@@ -475,20 +573,29 @@ function updatePlayerControls(playerId) {
         const playIcon = playPauseBtn.querySelector('.play-icon');
         const pauseIcon = playPauseBtn.querySelector('.pause-icon');
         if (state === YT.PlayerState.PLAYING) {
-            playIcon.style.display = 'none'; pauseIcon.style.display = 'block';
+            playIcon.style.display = 'none'; 
+            pauseIcon.style.display = 'block';
         } else {
-            playIcon.style.display = 'block'; pauseIcon.style.display = 'none';
+            playIcon.style.display = 'block'; 
+            pauseIcon.style.display = 'none';
         }
 
-        // Progress
+        // Progress - CLAMPED
         const currentTime = player.getCurrentTime() || 0;
         const duration = player.getDuration() || 0;
         if (duration > 0) {
-            const percent = (currentTime / duration) * 100;
+            let percent = (currentTime / duration) * 100;
+            
+            // CLAMP percent between 0 and 100
+            percent = clampPercent(percent);
+            
             progressFilled.style.width = `${percent}%`;
             progressBall.style.left = `${percent}%`;
-            const buffered = player.getVideoLoadedFraction() || 0;
-            progressBuffered.style.width = `${buffered * 100}%`;
+            
+            // Buffered - also clamped
+            let buffered = (player.getVideoLoadedFraction() || 0) * 100;
+            buffered = clampPercent(buffered);
+            progressBuffered.style.width = `${buffered}%`;
         }
 
         // Volume
@@ -647,10 +754,10 @@ function initYouTubePlayer(playerId, videoId, width, height) {
             videoId: videoId,
             playerVars: {
                 autoplay: 0,
-                controls: 0, // custom controls
+                controls: 0,
                 modestbranding: 1,
                 rel: 0,
-                fs: 0, // we handle fullscreen
+                fs: 0,
                 playsinline: 1,
                 disablekb: 1,
                 iv_load_policy: 3
@@ -690,20 +797,29 @@ function addVideo() {
     createVideoContainer(videoId);
     closeSearch();
 }
+
 function closeSearch() {
     const panel = document.getElementById('searchPanel');
     const urlInput = document.getElementById('urlInput');
     if (panel) panel.style.display = 'none';
     if (urlInput) urlInput.value = '';
 }
+
 function removeVideo(container) {
     const playerId = container.dataset.playerId;
-    if (players[playerId]) { try { players[playerId].destroy(); } catch {} delete players[playerId]; }
-    if (progressIntervals[playerId]) { clearInterval(progressIntervals[playerId]); delete progressIntervals[playerId]; }
+    if (players[playerId]) { 
+        try { players[playerId].destroy(); } catch {} 
+        delete players[playerId]; 
+    }
+    if (progressIntervals[playerId]) { 
+        clearInterval(progressIntervals[playerId]); 
+        delete progressIntervals[playerId]; 
+    }
     const idx = allVideos.indexOf(container);
     if (idx !== -1) allVideos.splice(idx, 1);
     container.remove();
 }
+
 window.addVideo = addVideo;
 window.closeSearch = closeSearch;
 
@@ -712,7 +828,8 @@ window.closeSearch = closeSearch;
 // ==============
 function startMove(e, container) {
     if (isLocked(container)) return;
-    isDragging = true; currentElement = container;
+    isDragging = true; 
+    currentElement = container;
     container.classList.add('dragging');
     focusVideo(container);
     const rect = container.getBoundingClientRect();
@@ -722,6 +839,7 @@ function startMove(e, container) {
     document.addEventListener('mouseup', stopMove);
     e.preventDefault();
 }
+
 function handleMove(e) {
     if (!isDragging || !currentElement) return;
     let newX = e.clientX - startX;
@@ -736,6 +854,7 @@ function handleMove(e) {
     currentElement.style.left = `${newX}px`;
     currentElement.style.top = `${newY}px`;
 }
+
 function stopMove() {
     if (!isDragging || !currentElement) return;
     isDragging = false;
@@ -772,6 +891,7 @@ function startResize(e, element, direction) {
     e.preventDefault();
     e.stopPropagation();
 }
+
 function handleResize(e) {
     if (!isResizing || !currentElement) return;
 
@@ -784,18 +904,23 @@ function handleResize(e) {
     let newTop = startTop;
 
     if (resizeDirection.includes('e')) newWidth = Math.max(MIN_WIDTH, startWidth + deltaX);
-    if (resizeDirection.includes('w')) { newWidth = Math.max(MIN_WIDTH, startWidth - deltaX); newLeft = startLeft + deltaX; }
+    if (resizeDirection.includes('w')) { 
+        newWidth = Math.max(MIN_WIDTH, startWidth - deltaX); 
+        newLeft = startLeft + deltaX; 
+    }
     if (resizeDirection.includes('s')) newHeight = Math.max(MIN_HEIGHT, startHeight + deltaY);
-    if (resizeDirection.includes('n')) { newHeight = Math.max(MIN_HEIGHT, startHeight - deltaY); newTop = startTop + deltaY; }
+    if (resizeDirection.includes('n')) { 
+        newHeight = Math.max(MIN_HEIGHT, startHeight - deltaY); 
+        newTop = startTop + deltaY; 
+    }
 
-    // Maintain 16:9 to avoid internal gaps
+    // Maintain 16:9
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
         newHeight = newWidth / ASPECT_RATIO;
     } else {
         newWidth = newHeight * ASPECT_RATIO;
     }
 
-    // Snap to similar sizes + small grid
     const snapped = getSnappedSize(currentElement, newWidth, newHeight);
     newWidth = snapToGrid(snapped.width);
     newHeight = snapToGrid(snapped.height);
@@ -820,11 +945,13 @@ function handleResize(e) {
         currentElement.style.top = `${newTop}px`;
     }
 
-    // Update YT player size live
     const playerId = currentElement.dataset.playerId;
     const player = players[playerId];
-    if (player && player.setSize) { try { player.setSize(newWidth, newHeight); } catch {} }
+    if (player && player.setSize) { 
+        try { player.setSize(newWidth, newHeight); } catch {} 
+    }
 }
+
 function stopResize() {
     if (!isResizing || !currentElement) return;
     isResizing = false;
@@ -847,7 +974,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!urlInput || !searchPanel) return;
 
-    // Click the plus icon to toggle the add-video popup
     if (floatingIcon) {
         floatingIcon.style.cursor = 'pointer';
         floatingIcon.addEventListener('click', (e) => {
@@ -858,7 +984,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         const activeTag = (document.activeElement && document.activeElement.tagName) || '';
         const typing = ['INPUT', 'TEXTAREA'].includes(activeTag);
@@ -870,10 +995,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') searchPanel.style.display = 'none';
     });
 
-    // Enter to add video
-    urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addVideo(); });
+    urlInput.addEventListener('keypress', (e) => { 
+        if (e.key === 'Enter') addVideo(); 
+    });
 
-    // Close when clicking outside (not when clicking the plus icon)
     document.addEventListener('click', (e) => {
         if (!searchPanel.contains(e.target) && !(floatingIcon && floatingIcon.contains(e.target))) {
             searchPanel.style.display = 'none';
