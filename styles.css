@@ -8,7 +8,7 @@ body {
     height: 100vh;
 }
 
-/* Plus icon (opens popup) */
+/* Plus icon (opens popup!) */
 #floatingIcon {
     position: fixed;
     top: 20px;
@@ -710,4 +710,5 @@ body {
 .video-container.confirming-delete .resize-handle {
     opacity: 0 !important;
     pointer-events: none !important;
+
 }
