@@ -187,13 +187,53 @@ function isAtLiveEdge(playerId, threshold = 10) {
         const currentTime = player.getCurrentTime() || 0;
         const duration = player.getDuration() || 0;
         
-        if (duration === 0) return true;
+        // For zero-duration live streams, use stored state or default to true
+        if (duration === 0) {
+            if (typeof liveStates[playerId] === 'boolean') {
+                return liveStates[playerId];
+            }
+            return true;
+        }
         
         // Consider "at live edge" if within threshold seconds of the end
         return (duration - currentTime) <= threshold;
     } catch {}
     
     return false;
+}
+
+// ========================
+// Update Live State Classes
+// ========================
+function updateLiveStateClasses(container, liveBtn, atLiveEdge) {
+    if (atLiveEdge) {
+        container.classList.remove('behind-live');
+        container.classList.add('at-live-edge');
+        if (liveBtn) {
+            liveBtn.classList.remove('behind-live');
+            liveBtn.classList.add('at-live-edge');
+        }
+    } else {
+        container.classList.add('behind-live');
+        container.classList.remove('at-live-edge');
+        if (liveBtn) {
+            liveBtn.classList.add('behind-live');
+            liveBtn.classList.remove('at-live-edge');
+        }
+    }
+}
+
+// ========================
+// Update Progress Bar UI
+// ========================
+function updateProgressBarUI(controlsOverlay, percent, bufferedPercent) {
+    const progressFilled = controlsOverlay._progressFilled;
+    const progressBall = controlsOverlay._progressBall;
+    const progressBuffered = controlsOverlay._progressBuffered;
+    
+    if (progressFilled) progressFilled.style.width = `${percent}%`;
+    if (progressBall) progressBall.style.left = `${percent}%`;
+    if (progressBuffered) progressBuffered.style.width = `${bufferedPercent}%`;
 }
 
 // ========================
@@ -486,6 +526,7 @@ function createPlayerControls(container, playerId) {
     controlsOverlay.appendChild(progressContainer);
     controlsOverlay.appendChild(rightControls);
 
+    // Store references
     controlsOverlay._playerId = playerId;
     controlsOverlay._playPauseBtn = playPauseBtn;
     controlsOverlay._volumeBtn = volumeBtn;
@@ -499,6 +540,7 @@ function createPlayerControls(container, playerId) {
     controlsOverlay._liveBtn = liveBtn;
     controlsOverlay._fullscreenBtn = fullscreenBtn;
 
+    // Event listeners
     playPauseBtn.addEventListener('click', (e) => { 
         e.stopPropagation(); 
         e.preventDefault(); 
@@ -540,6 +582,7 @@ function createPlayerControls(container, playerId) {
         toggleFullscreen(container); 
     });
 
+    // Seeking logic
     let isSeeking = false;
     
     const handleSeek = (e) => {
@@ -562,11 +605,20 @@ function createPlayerControls(container, playerId) {
             progressFilled.style.width = `${percent}%`;
             progressBall.style.left = `${percent}%`;
             
-            // Mark as not at live edge if seeking backwards on a live video
-            if (isVideoLive(playerId) && percent < 99) {
-                liveStates[playerId] = false;
-                container.classList.add('behind-live');
-                container.classList.remove('at-live-edge');
+            // For live videos, update state based on seek position
+            if (isVideoLive(playerId)) {
+                // If scrubbing to >= 98%, consider it "at live edge"
+                if (percent >= 98) {
+                    liveStates[playerId] = true;
+                    updateLiveStateClasses(container, liveBtn, true);
+                    // Force bar to 100%
+                    progressFilled.style.width = '100%';
+                    progressBall.style.left = '100%';
+                } else {
+                    // User is behind live
+                    liveStates[playerId] = false;
+                    updateLiveStateClasses(container, liveBtn, false);
+                }
             }
         }
     };
@@ -668,14 +720,27 @@ function seekToLive(playerId) {
     if (!player) return;
     
     try {
-        const duration = player.getDuration();
-        player.seekTo(Math.max(0, duration), true);
+        const duration = player.getDuration() || 0;
+        
+        // Seek to the end
+        if (duration > 0) {
+            player.seekTo(duration, true);
+        }
         
         // Mark as at live edge
         liveStates[playerId] = true;
+        
         if (container) {
-            container.classList.remove('behind-live');
-            container.classList.add('at-live-edge');
+            const controlsOverlay = container.querySelector('.player-controls-overlay');
+            const liveBtn = controlsOverlay ? controlsOverlay._liveBtn : null;
+            
+            // Update classes
+            updateLiveStateClasses(container, liveBtn, true);
+            
+            // Force progress bar to 100% immediately
+            if (controlsOverlay) {
+                updateProgressBarUI(controlsOverlay, 100, 100);
+            }
         }
     } catch (err) { 
         console.error('Seek to live error:', err); 
@@ -697,18 +762,17 @@ function updatePlayerControls(playerId) {
     const liveBtn = controlsOverlay._liveBtn;
 
     try {
-        // Check if video is live
         const isLive = isVideoLive(playerId);
-        
+
         // Update play/pause button state
         const state = player.getPlayerState();
         const playIcon = playPauseBtn.querySelector('.play-icon');
         const pauseIcon = playPauseBtn.querySelector('.pause-icon');
         if (state === YT.PlayerState.PLAYING) {
-            playIcon.style.display = 'none'; 
+            playIcon.style.display = 'none';
             pauseIcon.style.display = 'block';
         } else {
-            playIcon.style.display = 'block'; 
+            playIcon.style.display = 'block';
             pauseIcon.style.display = 'none';
         }
 
@@ -716,70 +780,89 @@ function updatePlayerControls(playerId) {
         const duration = player.getDuration() || 0;
 
         if (isLive) {
-            // Add live indicator class
+            // ============ LIVE VIDEO ============
             container.classList.add('is-live');
             if (liveBtn) liveBtn.classList.add('is-live');
+
+            // Determine if at live edge
+            let atLiveEdge;
             
-            // Check if at live edge
-            const atLiveEdge = isAtLiveEdge(playerId, 10);
-            
-            // Initialize live state if not set
-            if (liveStates[playerId] === undefined) {
-                liveStates[playerId] = true; // Start at live
-            }
-            
-            // Update live state based on position
-            if (atLiveEdge) {
-                liveStates[playerId] = true;
-                container.classList.remove('behind-live');
-                container.classList.add('at-live-edge');
-            } else {
-                liveStates[playerId] = false;
-                container.classList.add('behind-live');
-                container.classList.remove('at-live-edge');
-            }
-            
-            // Always show actual progress for live videos
-            if (duration > 0) {
-                let percent = (currentTime / duration) * 100;
-                percent = clampPercent(percent);
+            // First check our explicit state
+            if (typeof liveStates[playerId] === 'boolean') {
+                // Verify our state against actual position
+                const actuallyAtEdge = isAtLiveEdge(playerId, 10);
                 
+                // If we think we're at edge, trust that
+                // If we think we're behind, verify we haven't caught up
+                if (!liveStates[playerId] && actuallyAtEdge) {
+                    // We caught up to live
+                    liveStates[playerId] = true;
+                }
+                atLiveEdge = liveStates[playerId];
+            } else {
+                // No state yet, calculate from position
+                atLiveEdge = isAtLiveEdge(playerId, 10);
+                liveStates[playerId] = atLiveEdge;
+            }
+
+            // Update CSS classes for pulsation
+            updateLiveStateClasses(container, liveBtn, atLiveEdge);
+
+            // Calculate progress
+            if (duration > 0) {
+                let percent;
+                let bufferedPercent;
+
+                if (atLiveEdge) {
+                    // At live edge: force 100%
+                    percent = 100;
+                    bufferedPercent = 100;
+                } else {
+                    // Behind live: show actual progress
+                    percent = clampPercent((currentTime / duration) * 100);
+                    bufferedPercent = clampPercent((player.getVideoLoadedFraction() || 0) * 100);
+                }
+
                 progressFilled.style.width = `${percent}%`;
                 progressBall.style.left = `${percent}%`;
-                
-                let buffered = (player.getVideoLoadedFraction() || 0) * 100;
-                buffered = clampPercent(buffered);
-                progressBuffered.style.width = `${buffered}%`;
+                progressBuffered.style.width = `${bufferedPercent}%`;
             } else {
-                // If duration is 0, show full bar
-                progressFilled.style.width = '100%';
-                progressBall.style.left = '100%';
-                progressBuffered.style.width = '100%';
+                // Duration is 0: show based on state
+                if (atLiveEdge) {
+                    progressFilled.style.width = '100%';
+                    progressBall.style.left = '100%';
+                    progressBuffered.style.width = '100%';
+                }
             }
-            
-            // Keep progress ball visible
+
+            // Keep progress ball visible for live
             progressBall.style.opacity = '1';
-            
+
         } else {
-            // Regular video - normal progress calculation
-            container.classList.remove('is-live');
-            container.classList.remove('behind-live');
-            container.classList.remove('at-live-edge');
-            if (liveBtn) liveBtn.classList.remove('is-live');
-            
-            // Show the progress ball
+            // ============ VOD (NOT LIVE) ============
+            container.classList.remove('is-live', 'behind-live', 'at-live-edge');
+            if (liveBtn) {
+                liveBtn.classList.remove('is-live', 'behind-live', 'at-live-edge');
+            }
+
+            // Reset progress ball opacity
             progressBall.style.opacity = '';
-            
+
             if (duration > 0) {
                 let percent = (currentTime / duration) * 100;
+
+                // If very close to end, snap to 100%
+                if ((duration - currentTime) <= 0.5) {
+                    percent = 100;
+                }
+
                 percent = clampPercent(percent);
-                
+
                 progressFilled.style.width = `${percent}%`;
                 progressBall.style.left = `${percent}%`;
-                
-                let buffered = (player.getVideoLoadedFraction() || 0) * 100;
-                buffered = clampPercent(buffered);
-                progressBuffered.style.width = `${buffered}%`;
+
+                let bufferedPercent = clampPercent((player.getVideoLoadedFraction() || 0) * 100);
+                progressBuffered.style.width = `${bufferedPercent}%`;
             }
         }
 
@@ -797,7 +880,6 @@ function setupFullscreenControlsAutoHide(container) {
     let hideTimeout = null;
     let isOverControls = false;
     
-    // Add transition for smooth fade
     playerControls.style.transition = 'opacity 0.3s ease';
     
     const hideControls = () => {
@@ -841,13 +923,11 @@ function setupFullscreenControlsAutoHide(container) {
         }
     };
     
-    // Add event listeners
     container.addEventListener('mousemove', onMouseMove);
     container.addEventListener('mouseleave', onMouseLeave);
     playerControls.addEventListener('mouseenter', onControlsEnter);
     playerControls.addEventListener('mouseleave', onControlsLeave);
     
-    // Store handlers for cleanup
     container._fsHandlers = {
         onMouseMove,
         onMouseLeave,
@@ -856,7 +936,6 @@ function setupFullscreenControlsAutoHide(container) {
         hideTimeout
     };
     
-    // Initial state: show briefly then hide
     showControls();
 }
 
@@ -877,7 +956,6 @@ function cleanupFullscreenControlsAutoHide(container) {
         delete container._fsHandlers;
     }
     
-    // Reset styles
     if (playerControls) {
         playerControls.style.transition = '';
         playerControls.style.opacity = '';
@@ -900,13 +978,11 @@ function toggleFullscreen(container) {
             if (compressIcon) compressIcon.style.display = 'block';
             container.classList.add('fullscreen');
             
-            // Hide top buttons and other non-essential elements
             if (videoControls) videoControls.style.display = 'none';
             resizeHandles.forEach(h => h.style.display = 'none');
             if (sizeIndicator) sizeIndicator.style.display = 'none';
             if (hoverOutline) hoverOutline.style.display = 'none';
             
-            // Setup auto-hide for bottom controls
             setupFullscreenControlsAutoHide(container);
             
         }).catch(err => console.error('Fullscreen error:', err));
@@ -916,13 +992,11 @@ function toggleFullscreen(container) {
             if (compressIcon) compressIcon.style.display = 'none';
             container.classList.remove('fullscreen');
             
-            // Restore top buttons and other elements
             if (videoControls) videoControls.style.display = '';
             resizeHandles.forEach(h => h.style.display = '');
             if (sizeIndicator) sizeIndicator.style.display = '';
             if (hoverOutline) hoverOutline.style.display = '';
             
-            // Cleanup auto-hide
             cleanupFullscreenControlsAutoHide(container);
         });
     }
@@ -946,13 +1020,11 @@ document.addEventListener('fullscreenchange', () => {
             if (expandIcon) expandIcon.style.display = 'none';
             if (compressIcon) compressIcon.style.display = 'block';
             
-            // Hide top buttons and other non-essential elements
             if (videoControls) videoControls.style.display = 'none';
             resizeHandles.forEach(h => h.style.display = 'none');
             if (sizeIndicator) sizeIndicator.style.display = 'none';
             if (hoverOutline) hoverOutline.style.display = 'none';
             
-            // Setup auto-hide for bottom controls
             setupFullscreenControlsAutoHide(container);
             
         } else {
@@ -960,13 +1032,11 @@ document.addEventListener('fullscreenchange', () => {
             if (expandIcon) expandIcon.style.display = 'block';
             if (compressIcon) compressIcon.style.display = 'none';
             
-            // Restore top buttons and other elements
             if (videoControls) videoControls.style.display = '';
             resizeHandles.forEach(h => h.style.display = '');
             if (sizeIndicator) sizeIndicator.style.display = '';
             if (hoverOutline) hoverOutline.style.display = '';
             
-            // Cleanup auto-hide
             cleanupFullscreenControlsAutoHide(container);
         }
     });
@@ -1067,7 +1137,7 @@ function createVideoContainer(videoId, options = {}) {
     document.body.appendChild(container);
     allVideos.push(container);
 
-    // Initialize live state
+    // Initialize live state as "at live edge" by default
     liveStates[playerId] = true;
 
     initYouTubePlayer(playerId, videoId, width, height);
@@ -1135,12 +1205,10 @@ function closeSearch() {
 }
 
 function removeVideo(container) {
-    // Cleanup fullscreen handlers if any
     cleanupFullscreenControlsAutoHide(container);
     
     const playerId = container.dataset.playerId;
     
-    // Cleanup live state
     delete liveStates[playerId];
     
     if (players[playerId]) { 

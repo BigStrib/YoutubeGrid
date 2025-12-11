@@ -297,7 +297,7 @@ body {
     flex-shrink: 0;
 }
 
-.player-control-btn, .live-btn {
+.player-control-btn {
     background: none; 
     border: none; 
     padding: 6px; 
@@ -311,18 +311,98 @@ body {
     transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     flex-shrink: 0;
 }
-.player-control-btn:hover, .live-btn:hover {
+.player-control-btn:hover {
     opacity: 1; 
     background: rgba(255,255,255,0.12); 
     transform: translateY(-1px);
 }
-.player-control-btn svg, .live-btn svg { 
+.player-control-btn svg { 
     width: 22px; 
     height: 22px; 
     display: block; 
     fill: #fff; 
 }
-.live-btn svg { fill: #b00; }
+
+/* ========================================
+   LIVE BUTTON STYLES - FIXED FOR PULSATION
+   ======================================== */
+
+/* Base live button - hidden by default (not a live stream) */
+.live-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.live-btn svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+
+/* Show live button only when video is a live stream */
+.live-btn.is-live {
+    display: flex;
+}
+
+/* When at live edge - solid red, no animation */
+.live-btn.is-live.at-live-edge {
+    opacity: 1;
+    animation: none;
+}
+
+.live-btn.is-live.at-live-edge svg path,
+.live-btn.is-live.at-live-edge svg circle {
+    fill: #f44336;
+}
+
+/* When behind live - pulsating animation to indicate user can click to catch up */
+.live-btn.is-live.behind-live {
+    animation: livePulsate 1.2s ease-in-out infinite;
+    cursor: pointer;
+}
+
+.live-btn.is-live.behind-live svg path,
+.live-btn.is-live.behind-live svg circle {
+    fill: #888;
+}
+
+@keyframes livePulsate {
+    0%, 100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+}
+
+/* Hover on behind-live button - show it's clickable */
+.live-btn.is-live.behind-live:hover {
+    animation: none;
+    opacity: 1;
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+}
+
+.live-btn.is-live.behind-live:hover svg path,
+.live-btn.is-live.behind-live:hover svg circle {
+    fill: #f44336;
+}
+
+/* At live edge hover */
+.live-btn.is-live.at-live-edge:hover {
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+}
 
 /* ========================================
    VOLUME CONTROL - HIDDEN UNTIL HOVER
@@ -531,7 +611,7 @@ body {
     padding: 0 24px; 
 }
 
-.video-container.fullscreen .player-control-btn svg, 
+.video-container.fullscreen .player-control-btn svg,
 .video-container.fullscreen .live-btn svg { 
     width: 28px; 
     height: 28px; 
@@ -710,40 +790,4 @@ body {
 .video-container.confirming-delete .resize-handle {
     opacity: 0 !important;
     pointer-events: none !important;
-}
-
-
-/*Added code */
-
-
-
-/* Live button styling */
-.live-btn.is-live {
-    opacity: 1;
-}
-
-/* When behind live - make button pulse to indicate click to return */
-.video-container.behind-live .live-btn {
-    animation: pulse 1.5s infinite;
-    cursor: pointer;
-}
-
-/* When at live edge - solid indicator */
-.video-container.at-live-edge .live-btn {
-    animation: none;
-    opacity: 1;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-/* Optional: different progress bar color when behind live */
-.video-container.behind-live .progress-filled {
-    background: #ff6b6b;
-}
-
-.video-container.at-live-edge .progress-filled {
-    background: #f44336;
 }
