@@ -1,5 +1,5 @@
 // ========================
-// Global State & Constants!
+// Global State & Constants
 // ========================
 let isDragging = false;
 let isResizing = false;
@@ -1255,5 +1255,4 @@ document.addEventListener('DOMContentLoaded', () => {
             searchPanel.style.display = 'none';
         }
     });
-
 });
