@@ -22,6 +22,9 @@ let players = {};
 let progressIntervals = {};
 let ytAPIReady = false;
 
+// Track if user is watching live or rewound
+let liveStates = {};
+
 const GRID_SIZE = 10;
 const SNAP_THRESHOLD = 20;
 
@@ -168,6 +171,26 @@ function isVideoLive(playerId) {
         // Some live streams report very large durations
         if (duration > 86400) return true; // More than 24 hours
         
+    } catch {}
+    
+    return false;
+}
+
+// ========================
+// Check if Currently at Live Edge
+// ========================
+function isAtLiveEdge(playerId, threshold = 10) {
+    const player = players[playerId];
+    if (!player) return false;
+    
+    try {
+        const currentTime = player.getCurrentTime() || 0;
+        const duration = player.getDuration() || 0;
+        
+        if (duration === 0) return true;
+        
+        // Consider "at live edge" if within threshold seconds of the end
+        return (duration - currentTime) <= threshold;
     } catch {}
     
     return false;
@@ -504,6 +527,7 @@ function createPlayerControls(container, playerId) {
         volumeSliderContainer.classList.remove('active'); 
     });
 
+    // Live button - click to jump to live
     liveBtn.addEventListener('click', (e) => { 
         e.stopPropagation(); 
         e.preventDefault(); 
@@ -534,8 +558,16 @@ function createPlayerControls(container, playerId) {
             const seekTime = duration * (percent / 100);
             player.seekTo(seekTime, true);
             
+            // Update UI immediately
             progressFilled.style.width = `${percent}%`;
             progressBall.style.left = `${percent}%`;
+            
+            // Mark as not at live edge if seeking backwards on a live video
+            if (isVideoLive(playerId) && percent < 99) {
+                liveStates[playerId] = false;
+                container.classList.add('behind-live');
+                container.classList.remove('at-live-edge');
+            }
         }
     };
     
@@ -632,10 +664,19 @@ function updateVolumeUI(playerId) {
 
 function seekToLive(playerId) {
     const player = players[playerId];
+    const container = document.querySelector(`[data-player-id="${playerId}"]`);
     if (!player) return;
+    
     try {
         const duration = player.getDuration();
         player.seekTo(Math.max(0, duration), true);
+        
+        // Mark as at live edge
+        liveStates[playerId] = true;
+        if (container) {
+            container.classList.remove('behind-live');
+            container.classList.add('at-live-edge');
+        }
     } catch (err) { 
         console.error('Seek to live error:', err); 
     }
@@ -671,15 +712,50 @@ function updatePlayerControls(playerId) {
             pauseIcon.style.display = 'none';
         }
 
+        const currentTime = player.getCurrentTime() || 0;
+        const duration = player.getDuration() || 0;
+
         if (isLive) {
-            // Live video - progress bar always full, ball at end, seeking still enabled
-            progressFilled.style.width = '100%';
-            progressBall.style.left = '100%';
-            progressBuffered.style.width = '100%';
-            
             // Add live indicator class
             container.classList.add('is-live');
             if (liveBtn) liveBtn.classList.add('is-live');
+            
+            // Check if at live edge
+            const atLiveEdge = isAtLiveEdge(playerId, 10);
+            
+            // Initialize live state if not set
+            if (liveStates[playerId] === undefined) {
+                liveStates[playerId] = true; // Start at live
+            }
+            
+            // Update live state based on position
+            if (atLiveEdge) {
+                liveStates[playerId] = true;
+                container.classList.remove('behind-live');
+                container.classList.add('at-live-edge');
+            } else {
+                liveStates[playerId] = false;
+                container.classList.add('behind-live');
+                container.classList.remove('at-live-edge');
+            }
+            
+            // Always show actual progress for live videos
+            if (duration > 0) {
+                let percent = (currentTime / duration) * 100;
+                percent = clampPercent(percent);
+                
+                progressFilled.style.width = `${percent}%`;
+                progressBall.style.left = `${percent}%`;
+                
+                let buffered = (player.getVideoLoadedFraction() || 0) * 100;
+                buffered = clampPercent(buffered);
+                progressBuffered.style.width = `${buffered}%`;
+            } else {
+                // If duration is 0, show full bar
+                progressFilled.style.width = '100%';
+                progressBall.style.left = '100%';
+                progressBuffered.style.width = '100%';
+            }
             
             // Keep progress ball visible
             progressBall.style.opacity = '1';
@@ -687,13 +763,13 @@ function updatePlayerControls(playerId) {
         } else {
             // Regular video - normal progress calculation
             container.classList.remove('is-live');
+            container.classList.remove('behind-live');
+            container.classList.remove('at-live-edge');
             if (liveBtn) liveBtn.classList.remove('is-live');
             
             // Show the progress ball
             progressBall.style.opacity = '';
             
-            const currentTime = player.getCurrentTime() || 0;
-            const duration = player.getDuration() || 0;
             if (duration > 0) {
                 let percent = (currentTime / duration) * 100;
                 percent = clampPercent(percent);
@@ -991,6 +1067,9 @@ function createVideoContainer(videoId, options = {}) {
     document.body.appendChild(container);
     allVideos.push(container);
 
+    // Initialize live state
+    liveStates[playerId] = true;
+
     initYouTubePlayer(playerId, videoId, width, height);
 
     return container;
@@ -1060,6 +1139,10 @@ function removeVideo(container) {
     cleanupFullscreenControlsAutoHide(container);
     
     const playerId = container.dataset.playerId;
+    
+    // Cleanup live state
+    delete liveStates[playerId];
+    
     if (players[playerId]) { 
         try { players[playerId].destroy(); } catch {} 
         delete players[playerId]; 
