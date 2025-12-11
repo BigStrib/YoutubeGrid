@@ -148,6 +148,32 @@ function focusVideo(container) {
 }
 
 // ========================
+// Check if Video is Live
+// ========================
+function isVideoLive(playerId) {
+    const player = players[playerId];
+    if (!player) return false;
+    
+    try {
+        // Primary check: getVideoData().isLive
+        const videoData = player.getVideoData();
+        if (videoData && typeof videoData.isLive === 'boolean') {
+            return videoData.isLive;
+        }
+        
+        // Fallback: Check if duration is 0 or very large (can indicate live)
+        const duration = player.getDuration();
+        if (duration === 0) return true;
+        
+        // Some live streams report very large durations
+        if (duration > 86400) return true; // More than 24 hours
+        
+    } catch {}
+    
+    return false;
+}
+
+// ========================
 // Volume Slider Background Update (Red Fill)
 // ========================
 function updateVolumeSliderBackground(slider, value) {
@@ -158,17 +184,12 @@ function updateVolumeSliderBackground(slider, value) {
 // ========================
 // Delete Confirmation Popup
 // ========================
-// ========================
-// Delete Confirmation Popup
-// ========================
 function showDeleteConfirmation(container) {
-    // Check if already showing confirmation
     if (container.querySelector('.delete-confirm-overlay')) return;
     
     container.classList.add('confirming-delete');
     bringToFront(container);
     
-    // Pause video while confirming
     const playerId = container.dataset.playerId;
     const player = players[playerId];
     if (player) {
@@ -195,28 +216,24 @@ function showDeleteConfirmation(container) {
     
     container.appendChild(overlay);
     
-    // Cancel button
     const cancelBtn = overlay.querySelector('.cancel');
     cancelBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         hideDeleteConfirmation(container);
     });
     
-    // Confirm button
     const confirmBtn = overlay.querySelector('.confirm');
     confirmBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         removeVideo(container);
     });
     
-    // Click outside to cancel
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             hideDeleteConfirmation(container);
         }
     });
     
-    // Escape key to cancel
     const escHandler = (e) => {
         if (e.key === 'Escape') {
             hideDeleteConfirmation(container);
@@ -225,14 +242,12 @@ function showDeleteConfirmation(container) {
     };
     document.addEventListener('keydown', escHandler);
     
-    // Store handler reference for cleanup
     overlay._escHandler = escHandler;
 }
 
 function hideDeleteConfirmation(container) {
     const overlay = container.querySelector('.delete-confirm-overlay');
     if (overlay) {
-        // Remove escape handler
         if (overlay._escHandler) {
             document.removeEventListener('keydown', overlay._escHandler);
         }
@@ -360,7 +375,6 @@ function createPlayerControls(container, playerId) {
     const controlsOverlay = document.createElement('div');
     controlsOverlay.className = 'player-controls-overlay';
 
-    // Left: play/pause, volume
     const leftControls = document.createElement('div');
     leftControls.className = 'player-controls-left';
 
@@ -400,7 +414,6 @@ function createPlayerControls(container, playerId) {
     leftControls.appendChild(playPauseBtn);
     leftControls.appendChild(volumeControl);
 
-    // Middle: progress
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
     
@@ -421,7 +434,6 @@ function createPlayerControls(container, playerId) {
     progressBar.appendChild(progressBall);
     progressContainer.appendChild(progressBar);
 
-    // Right: live, fullscreen
     const rightControls = document.createElement('div');
     rightControls.className = 'player-controls-right';
 
@@ -447,12 +459,10 @@ function createPlayerControls(container, playerId) {
     rightControls.appendChild(liveBtn);
     rightControls.appendChild(fullscreenBtn);
 
-    // Assemble
     controlsOverlay.appendChild(leftControls);
     controlsOverlay.appendChild(progressContainer);
     controlsOverlay.appendChild(rightControls);
 
-    // Store refs
     controlsOverlay._playerId = playerId;
     controlsOverlay._playPauseBtn = playPauseBtn;
     controlsOverlay._volumeBtn = volumeBtn;
@@ -466,7 +476,6 @@ function createPlayerControls(container, playerId) {
     controlsOverlay._liveBtn = liveBtn;
     controlsOverlay._fullscreenBtn = fullscreenBtn;
 
-    // Events
     playPauseBtn.addEventListener('click', (e) => { 
         e.stopPropagation(); 
         e.preventDefault(); 
@@ -507,7 +516,6 @@ function createPlayerControls(container, playerId) {
         toggleFullscreen(container); 
     });
 
-    // Seeking - with clamping
     let isSeeking = false;
     
     const handleSeek = (e) => {
@@ -645,8 +653,13 @@ function updatePlayerControls(playerId) {
     const progressFilled = controlsOverlay._progressFilled;
     const progressBuffered = controlsOverlay._progressBuffered;
     const progressBall = controlsOverlay._progressBall;
+    const liveBtn = controlsOverlay._liveBtn;
 
     try {
+        // Check if video is live
+        const isLive = isVideoLive(playerId);
+        
+        // Update play/pause button state
         const state = player.getPlayerState();
         const playIcon = playPauseBtn.querySelector('.play-icon');
         const pauseIcon = playPauseBtn.querySelector('.pause-icon');
@@ -658,40 +671,183 @@ function updatePlayerControls(playerId) {
             pauseIcon.style.display = 'none';
         }
 
-        const currentTime = player.getCurrentTime() || 0;
-        const duration = player.getDuration() || 0;
-        if (duration > 0) {
-            let percent = (currentTime / duration) * 100;
-            percent = clampPercent(percent);
+        if (isLive) {
+            // Live video - progress bar always full, ball at end, seeking still enabled
+            progressFilled.style.width = '100%';
+            progressBall.style.left = '100%';
+            progressBuffered.style.width = '100%';
             
-            progressFilled.style.width = `${percent}%`;
-            progressBall.style.left = `${percent}%`;
+            // Add live indicator class
+            container.classList.add('is-live');
+            if (liveBtn) liveBtn.classList.add('is-live');
             
-            let buffered = (player.getVideoLoadedFraction() || 0) * 100;
-            buffered = clampPercent(buffered);
-            progressBuffered.style.width = `${buffered}%`;
+            // Keep progress ball visible
+            progressBall.style.opacity = '1';
+            
+        } else {
+            // Regular video - normal progress calculation
+            container.classList.remove('is-live');
+            if (liveBtn) liveBtn.classList.remove('is-live');
+            
+            // Show the progress ball
+            progressBall.style.opacity = '';
+            
+            const currentTime = player.getCurrentTime() || 0;
+            const duration = player.getDuration() || 0;
+            if (duration > 0) {
+                let percent = (currentTime / duration) * 100;
+                percent = clampPercent(percent);
+                
+                progressFilled.style.width = `${percent}%`;
+                progressBall.style.left = `${percent}%`;
+                
+                let buffered = (player.getVideoLoadedFraction() || 0) * 100;
+                buffered = clampPercent(buffered);
+                progressBuffered.style.width = `${buffered}%`;
+            }
         }
 
         updateVolumeUI(playerId);
     } catch {}
 }
 
+// ========================
+// Fullscreen Controls Auto-Hide
+// ========================
+function setupFullscreenControlsAutoHide(container) {
+    const playerControls = container.querySelector('.player-controls-overlay');
+    if (!playerControls) return;
+    
+    let hideTimeout = null;
+    let isOverControls = false;
+    
+    // Add transition for smooth fade
+    playerControls.style.transition = 'opacity 0.3s ease';
+    
+    const hideControls = () => {
+        if (!isOverControls && document.fullscreenElement === container) {
+            playerControls.style.opacity = '0';
+            playerControls.style.pointerEvents = 'none';
+        }
+    };
+    
+    const showControls = () => {
+        playerControls.style.opacity = '1';
+        playerControls.style.pointerEvents = 'auto';
+        clearTimeout(hideTimeout);
+        
+        if (!isOverControls) {
+            hideTimeout = setTimeout(hideControls, 3000);
+        }
+    };
+    
+    const onMouseMove = () => {
+        showControls();
+    };
+    
+    const onControlsEnter = () => {
+        isOverControls = true;
+        clearTimeout(hideTimeout);
+        playerControls.style.opacity = '1';
+        playerControls.style.pointerEvents = 'auto';
+    };
+    
+    const onControlsLeave = () => {
+        isOverControls = false;
+        hideTimeout = setTimeout(hideControls, 1500);
+    };
+    
+    const onMouseLeave = () => {
+        if (document.fullscreenElement === container) {
+            isOverControls = false;
+            clearTimeout(hideTimeout);
+            hideControls();
+        }
+    };
+    
+    // Add event listeners
+    container.addEventListener('mousemove', onMouseMove);
+    container.addEventListener('mouseleave', onMouseLeave);
+    playerControls.addEventListener('mouseenter', onControlsEnter);
+    playerControls.addEventListener('mouseleave', onControlsLeave);
+    
+    // Store handlers for cleanup
+    container._fsHandlers = {
+        onMouseMove,
+        onMouseLeave,
+        onControlsEnter,
+        onControlsLeave,
+        hideTimeout
+    };
+    
+    // Initial state: show briefly then hide
+    showControls();
+}
+
+function cleanupFullscreenControlsAutoHide(container) {
+    const playerControls = container.querySelector('.player-controls-overlay');
+    const handlers = container._fsHandlers;
+    
+    if (handlers) {
+        clearTimeout(handlers.hideTimeout);
+        container.removeEventListener('mousemove', handlers.onMouseMove);
+        container.removeEventListener('mouseleave', handlers.onMouseLeave);
+        
+        if (playerControls) {
+            playerControls.removeEventListener('mouseenter', handlers.onControlsEnter);
+            playerControls.removeEventListener('mouseleave', handlers.onControlsLeave);
+        }
+        
+        delete container._fsHandlers;
+    }
+    
+    // Reset styles
+    if (playerControls) {
+        playerControls.style.transition = '';
+        playerControls.style.opacity = '';
+        playerControls.style.pointerEvents = '';
+    }
+}
+
 function toggleFullscreen(container) {
     const fullscreenBtn = container.querySelector('.fullscreen-btn');
     const expandIcon = fullscreenBtn?.querySelector('.expand-icon');
     const compressIcon = fullscreenBtn?.querySelector('.compress-icon');
+    const videoControls = container.querySelector('.video-controls');
+    const resizeHandles = container.querySelectorAll('.resize-handle');
+    const sizeIndicator = container.querySelector('.size-indicator');
+    const hoverOutline = container.querySelector('.hover-outline');
 
     if (!document.fullscreenElement) {
         container.requestFullscreen().then(() => {
             if (expandIcon) expandIcon.style.display = 'none';
             if (compressIcon) compressIcon.style.display = 'block';
             container.classList.add('fullscreen');
+            
+            // Hide top buttons and other non-essential elements
+            if (videoControls) videoControls.style.display = 'none';
+            resizeHandles.forEach(h => h.style.display = 'none');
+            if (sizeIndicator) sizeIndicator.style.display = 'none';
+            if (hoverOutline) hoverOutline.style.display = 'none';
+            
+            // Setup auto-hide for bottom controls
+            setupFullscreenControlsAutoHide(container);
+            
         }).catch(err => console.error('Fullscreen error:', err));
     } else {
         document.exitFullscreen().then(() => {
             if (expandIcon) expandIcon.style.display = 'block';
             if (compressIcon) compressIcon.style.display = 'none';
             container.classList.remove('fullscreen');
+            
+            // Restore top buttons and other elements
+            if (videoControls) videoControls.style.display = '';
+            resizeHandles.forEach(h => h.style.display = '');
+            if (sizeIndicator) sizeIndicator.style.display = '';
+            if (hoverOutline) hoverOutline.style.display = '';
+            
+            // Cleanup auto-hide
+            cleanupFullscreenControlsAutoHide(container);
         });
     }
 }
@@ -701,16 +857,41 @@ document.addEventListener('fullscreenchange', () => {
     containers.forEach(container => {
         const fullscreenBtn = container.querySelector('.fullscreen-btn');
         if (!fullscreenBtn) return;
+        
         const expandIcon = fullscreenBtn.querySelector('.expand-icon');
         const compressIcon = fullscreenBtn.querySelector('.compress-icon');
+        const videoControls = container.querySelector('.video-controls');
+        const resizeHandles = container.querySelectorAll('.resize-handle');
+        const sizeIndicator = container.querySelector('.size-indicator');
+        const hoverOutline = container.querySelector('.hover-outline');
+        
         if (document.fullscreenElement === container) {
             container.classList.add('fullscreen');
             if (expandIcon) expandIcon.style.display = 'none';
             if (compressIcon) compressIcon.style.display = 'block';
+            
+            // Hide top buttons and other non-essential elements
+            if (videoControls) videoControls.style.display = 'none';
+            resizeHandles.forEach(h => h.style.display = 'none');
+            if (sizeIndicator) sizeIndicator.style.display = 'none';
+            if (hoverOutline) hoverOutline.style.display = 'none';
+            
+            // Setup auto-hide for bottom controls
+            setupFullscreenControlsAutoHide(container);
+            
         } else {
             container.classList.remove('fullscreen');
             if (expandIcon) expandIcon.style.display = 'block';
             if (compressIcon) compressIcon.style.display = 'none';
+            
+            // Restore top buttons and other elements
+            if (videoControls) videoControls.style.display = '';
+            resizeHandles.forEach(h => h.style.display = '');
+            if (sizeIndicator) sizeIndicator.style.display = '';
+            if (hoverOutline) hoverOutline.style.display = '';
+            
+            // Cleanup auto-hide
+            cleanupFullscreenControlsAutoHide(container);
         }
     });
 });
@@ -734,7 +915,6 @@ function createVideoContainer(videoId, options = {}) {
     container.style.width = `${width}px`;
     container.style.height = `${height}px`;
 
-    // Player wrapper + YT div
     const playerWrapper = document.createElement('div');
     playerWrapper.className = 'player-wrapper';
     const playerDiv = document.createElement('div');
@@ -742,7 +922,6 @@ function createVideoContainer(videoId, options = {}) {
     playerDiv.className = 'youtube-player';
     playerWrapper.appendChild(playerDiv);
 
-    // Outline edges
     const outline = document.createElement('div');
     outline.className = 'hover-outline';
     ['top', 'right', 'bottom', 'left'].forEach((pos) => {
@@ -755,12 +934,10 @@ function createVideoContainer(videoId, options = {}) {
         outline.appendChild(edge);
     });
 
-    // Size indicator
     const sizeIndicator = document.createElement('div');
     sizeIndicator.className = 'size-indicator';
     sizeIndicator.textContent = `${width} × ${height}`;
 
-    // Top controls: move, lock, copy, delete
     const controls = document.createElement('div');
     controls.className = 'video-controls';
     const moveBtn = createControlButton('move', container);
@@ -772,10 +949,8 @@ function createVideoContainer(videoId, options = {}) {
     controls.appendChild(copyBtn);
     controls.appendChild(deleteBtn);
 
-    // Bottom controls
     const playerControls = createPlayerControls(container, playerId);
 
-    // Resize handles
     ['nw', 'ne', 'sw', 'se'].forEach((direction) => {
         const handle = document.createElement('div');
         handle.className = `resize-handle resize-${direction}`;
@@ -789,25 +964,20 @@ function createVideoContainer(videoId, options = {}) {
     container.appendChild(controls);
     container.appendChild(playerControls);
 
-    // Position
     const left = typeof options.left === 'number' ? options.left : DEFAULT_LEFT;
     const top = typeof options.top === 'number' ? options.top : DEFAULT_TOP;
     container.style.left = `${left}px`;
     container.style.top = `${top}px`;
 
-    // z-index
     container.style.zIndex = ++maxZIndex;
 
-    // Focus on pointer down
     container.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return;
         focusVideo(container);
     });
 
-    // Click surface toggles play/pause
     playerWrapper.addEventListener('click', () => {
         if (isLocked(container)) return;
-        // Don't toggle if confirming delete
         if (container.classList.contains('confirming-delete')) return;
         const player = players[playerId];
         if (!player) return;
@@ -821,7 +991,6 @@ function createVideoContainer(videoId, options = {}) {
     document.body.appendChild(container);
     allVideos.push(container);
 
-    // Initialize YT Player
     initYouTubePlayer(playerId, videoId, width, height);
 
     return container;
@@ -887,6 +1056,9 @@ function closeSearch() {
 }
 
 function removeVideo(container) {
+    // Cleanup fullscreen handlers if any
+    cleanupFullscreenControlsAutoHide(container);
+    
     const playerId = container.dataset.playerId;
     if (players[playerId]) { 
         try { players[playerId].destroy(); } catch {} 
@@ -995,7 +1167,6 @@ function handleResize(e) {
         newTop = startTop + deltaY; 
     }
 
-    // Maintain 16:9
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
         newHeight = newWidth / ASPECT_RATIO;
     } else {

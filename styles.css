@@ -8,7 +8,7 @@ body {
     height: 100vh;
 }
 
-/* Plus icon (opens popup!) */
+/* Plus icon (opens popup) */
 #floatingIcon {
     position: fixed;
     top: 20px;
@@ -710,5 +710,40 @@ body {
 .video-container.confirming-delete .resize-handle {
     opacity: 0 !important;
     pointer-events: none !important;
+}
 
+
+/*Added code */
+
+
+
+/* Live button styling */
+.live-btn.is-live {
+    opacity: 1;
+}
+
+/* When behind live - make button pulse to indicate click to return */
+.video-container.behind-live .live-btn {
+    animation: pulse 1.5s infinite;
+    cursor: pointer;
+}
+
+/* When at live edge - solid indicator */
+.video-container.at-live-edge .live-btn {
+    animation: none;
+    opacity: 1;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Optional: different progress bar color when behind live */
+.video-container.behind-live .progress-filled {
+    background: #ff6b6b;
+}
+
+.video-container.at-live-edge .progress-filled {
+    background: #f44336;
 }
