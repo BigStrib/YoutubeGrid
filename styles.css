@@ -108,13 +108,21 @@ body {
     cursor: default;
     transition: all 0.1s ease;
     background: #0a0a0a;
-    overflow: hidden;
+    overflow: visible;
 }
 .video-container.dragging { cursor: move; }
 .video-container.resizing { transition: none; }
 
-/* Player wrapper and iframe fill the container (no gaps) */
-.player-wrapper,
+/* Player wrapper and iframe fill the container */
+.player-wrapper {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: 1;
+}
+
 .youtube-player,
 .player-wrapper iframe {
     position: absolute;
@@ -124,8 +132,14 @@ body {
     border: none;
 }
 
-/* Hover outline (black edges) */
-.hover-outline { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+/* Hover outline - only on top and sides, NOT bottom */
+.hover-outline { 
+    position: absolute; 
+    inset: 0; 
+    pointer-events: none; 
+    z-index: 10; 
+}
+
 .hover-outline-edge {
     position: absolute;
     pointer-events: auto;
@@ -133,14 +147,39 @@ body {
     background-color: transparent;
     transition: opacity 0.15s ease, background-color 0.15s ease;
 }
-.hover-outline-top { top: 0; left: 0; right: 0; height: 25px; }
-.hover-outline-bottom { bottom: 0; left: 0; right: 0; height: 25px; }
-.hover-outline-left { top: 0; bottom: 0; left: 0; width: 25px; }
-.hover-outline-right { top: 0; bottom: 0; right: 0; width: 25px; }
 
-/* Show black edge on hover only */
+/* Top edge - for showing top controls */
+.hover-outline-top { 
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    height: 50px; 
+}
+
+/* Side edges - thin strips on left and right */
+.hover-outline-left { 
+    top: 50px; 
+    bottom: 60px; 
+    left: 0; 
+    width: 20px; 
+}
+
+.hover-outline-right { 
+    top: 50px; 
+    bottom: 60px; 
+    right: 0; 
+    width: 20px; 
+}
+
+/* Bottom edge - REMOVED to not interfere with YouTube controls */
+.hover-outline-bottom { 
+    display: none; 
+}
+
+/* Show edges on hover */
 .video-container:hover .hover-outline-edge { opacity: 1; }
-/* Hide the black edge while dragging or resizing */
+
+/* Hide edges while dragging or resizing */
 .video-container.dragging .hover-outline-edge,
 .video-container.resizing .hover-outline-edge {
     opacity: 0 !important;
@@ -159,12 +198,18 @@ body {
     opacity: 0;
     transition: opacity 0.2s ease;
     z-index: 20;
+    pointer-events: none;
 }
-.video-container:hover .video-controls { opacity: 1; }
+
+.video-container:hover .video-controls { 
+    opacity: 1; 
+    pointer-events: auto;
+}
 
 /* Hide controls while resizing */
 .video-container.resizing .video-controls {
     opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 /* Copy button pushes itself and delete to the right */
@@ -172,7 +217,7 @@ body {
     margin-left: auto;
 }
 
-/* Delete button stays next to copy (no auto margin) */
+/* Delete button stays next to copy */
 .video-controls .delete-btn { 
     margin-left: 0;
 }
@@ -191,8 +236,11 @@ body {
     backdrop-filter: blur(8px);
     position: relative;
     flex-shrink: 0;
+    pointer-events: auto;
 }
+
 .control-btn svg { width: 14px; height: 14px; fill: #ccc; }
+
 .control-btn:hover {
     background: rgba(0,0,0,0.95);
     border-color: rgba(255,255,255,0.2);
@@ -202,9 +250,11 @@ body {
 /* Move */
 .move-btn:hover { background: rgba(90,42,42,0.9); border-color: rgba(204,102,102,0.6); }
 .move-btn:hover svg { fill: #cc6666; }
+
 /* Delete */
 .delete-btn:hover { background: rgba(90,42,42,0.9); border-color: rgba(204,102,102,0.6); }
 .delete-btn:hover svg { fill: #cc6666; }
+
 /* Lock */
 .lock-btn.locked { background: rgba(90,42,42,0.95); border-color: rgba(204,102,102,0.9); }
 .lock-btn.locked svg { fill: #cc6666; }
@@ -225,8 +275,10 @@ body {
     border-radius: 2px;
     z-index: 25;
 }
+
 .video-container:hover .resize-handle { opacity: 0.7; }
 .resize-handle:hover { opacity: 1; background: #505050; }
+
 .resize-se { bottom: -6px; right: -6px; width: 12px; height: 12px; cursor: se-resize; }
 .resize-sw { bottom: -6px; left: -6px; width: 12px; height: 12px; cursor: sw-resize; }
 .resize-ne { top: -6px; right: -6px; width: 12px; height: 12px; cursor: ne-resize; }
@@ -258,7 +310,7 @@ body {
 }
 
 /* ========================================
-   DELETE CONFIRMATION POPUP - SIMPLE
+   DELETE CONFIRMATION POPUP
    ======================================== */
 .delete-confirm-overlay {
     position: absolute;
@@ -339,6 +391,13 @@ body {
 /* Hide other controls when confirmation is showing */
 .video-container.confirming-delete .video-controls,
 .video-container.confirming-delete .resize-handle {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Dragging state - hide everything except the video */
+.video-container.dragging .video-controls,
+.video-container.dragging .resize-handle {
     opacity: 0 !important;
     pointer-events: none !important;
 }

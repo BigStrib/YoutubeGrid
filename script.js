@@ -355,9 +355,10 @@ function createVideoContainer(videoId, options = {}) {
     playerDiv.className = 'youtube-player';
     playerWrapper.appendChild(playerDiv);
 
+    // Hover outline - only top and sides (not bottom, to allow YouTube controls)
     const outline = document.createElement('div');
     outline.className = 'hover-outline';
-    ['top', 'right', 'bottom', 'left'].forEach((pos) => {
+    ['top', 'right', 'left'].forEach((pos) => {
         const edge = document.createElement('div');
         edge.className = `hover-outline-edge hover-outline-${pos}`;
         edge.addEventListener('pointerdown', (e) => {
