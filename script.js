@@ -143,6 +143,56 @@ function focusVideo(container) {
 }
 
 // ========================
+// Toast Notifications
+// ========================
+function showToast(message, type = 'success') {
+    const existingToast = document.querySelector('.toast-message');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast-message ${type}`;
+    
+    let icon;
+    if (type === 'success') {
+        icon = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    } else {
+        icon = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+    }
+    
+    toast.innerHTML = `${icon}<span>${message}</span>`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ========================
+// Update Video Count & Empty State
+// ========================
+function updateVideoCount() {
+    const countEl = document.getElementById('videoCount');
+    if (countEl) {
+        countEl.textContent = allVideos.length;
+    }
+    updateEmptyState();
+}
+
+function updateEmptyState() {
+    const emptyState = document.getElementById('emptyState');
+    if (!emptyState) return;
+    
+    if (allVideos.length === 0) {
+        emptyState.classList.add('visible');
+    } else {
+        emptyState.classList.remove('visible');
+    }
+}
+
+// ========================
 // Delete Confirmation Popup
 // ========================
 function showDeleteConfirmation(container) {
@@ -162,12 +212,12 @@ function showDeleteConfirmation(container) {
     
     overlay.innerHTML = `
         <div class="delete-confirm-content">
-            <button class="delete-confirm-btn cancel" title="Cancel">
+            <button class="delete-confirm-btn cancel">
                 <svg viewBox="0 0 24 24">
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
             </button>
-            <button class="delete-confirm-btn confirm" title="Remove">
+            <button class="delete-confirm-btn confirm">
                 <svg viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                 </svg>
@@ -194,24 +244,11 @@ function showDeleteConfirmation(container) {
             hideDeleteConfirmation(container);
         }
     });
-    
-    const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            hideDeleteConfirmation(container);
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
-    
-    overlay._escHandler = escHandler;
 }
 
 function hideDeleteConfirmation(container) {
     const overlay = container.querySelector('.delete-confirm-overlay');
     if (overlay) {
-        if (overlay._escHandler) {
-            document.removeEventListener('keydown', overlay._escHandler);
-        }
         overlay.remove();
     }
     container.classList.remove('confirming-delete');
@@ -267,6 +304,40 @@ async function copyTextToClipboard(text) {
     return ok;
 }
 
+// ========================
+// Smart Paste - Read from clipboard
+// ========================
+async function getClipboardText() {
+    try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+            const text = await navigator.clipboard.readText();
+            return text;
+        }
+    } catch {}
+    return null;
+}
+
+async function smartPaste() {
+    const clipboardText = await getClipboardText();
+    
+    if (!clipboardText) {
+        showToast('Unable to read clipboard', 'error');
+        return false;
+    }
+    
+    const videoId = getYouTubeVideoId(clipboardText);
+    
+    if (!videoId) {
+        showToast('No valid YouTube URL in clipboard', 'error');
+        return false;
+    }
+    
+    createVideoContainer(videoId);
+    showToast('Video added from clipboard', 'success');
+    closeSidebar();
+    return true;
+}
+
 function createControlButton(type, container) {
     const button = document.createElement('div');
     button.className = `control-btn ${type}-btn`;
@@ -308,6 +379,7 @@ function createControlButton(type, container) {
             const shortUrl = `https://youtu.be/${id}`;
             await copyTextToClipboard(shortUrl);
             button.classList.add('copied');
+            showToast('URL copied to clipboard', 'success');
             setTimeout(() => button.classList.remove('copied'), 900);
         });
         return button;
@@ -355,7 +427,6 @@ function createVideoContainer(videoId, options = {}) {
     playerDiv.className = 'youtube-player';
     playerWrapper.appendChild(playerDiv);
 
-    // Hover outline - only top and sides (not bottom, to allow YouTube controls)
     const outline = document.createElement('div');
     outline.className = 'hover-outline';
     ['top', 'right', 'left'].forEach((pos) => {
@@ -411,6 +482,8 @@ function createVideoContainer(videoId, options = {}) {
     allVideos.push(container);
 
     initYouTubePlayer(playerId, videoId, width, height);
+    
+    updateVideoCount();
 
     return container;
 }
@@ -430,9 +503,7 @@ function initYouTubePlayer(playerId, videoId, width, height) {
                 playsinline: 1
             },
             events: {
-                onReady: () => {
-                    // Player is ready
-                }
+                onReady: () => {}
             }
         });
     };
@@ -445,26 +516,52 @@ function initYouTubePlayer(playerId, videoId, width, height) {
 }
 
 // ====================
+// Sidebar Functions
+// ====================
+function openSidebar() {
+    document.body.classList.add('sidebar-open');
+    
+    setTimeout(() => {
+        const urlInput = document.getElementById('urlInput');
+        if (urlInput) urlInput.focus();
+    }, 350);
+}
+
+function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
+}
+
+function toggleSidebar() {
+    if (document.body.classList.contains('sidebar-open')) {
+        closeSidebar();
+    } else {
+        openSidebar();
+    }
+}
+
+// ====================
 // Public UI Functions
 // ====================
 function addVideo() {
     const urlInput = document.getElementById('urlInput');
     if (!urlInput) return;
     const url = urlInput.value.trim();
-    if (!url) return;
+    if (!url) {
+        showToast('Please enter a YouTube URL', 'error');
+        return;
+    }
 
     const videoId = getYouTubeVideoId(url);
-    if (!videoId) { alert('Please enter a valid YouTube URL or video ID'); return; }
+    if (!videoId) { 
+        showToast('Please enter a valid YouTube URL', 'error');
+        return; 
+    }
 
     createVideoContainer(videoId);
-    closeSearch();
-}
-
-function closeSearch() {
-    const panel = document.getElementById('searchPanel');
-    const urlInput = document.getElementById('urlInput');
-    if (panel) panel.style.display = 'none';
-    if (urlInput) urlInput.value = '';
+    urlInput.value = '';
+    showToast('Video added successfully', 'success');
+    
+    closeSidebar();
 }
 
 function removeVideo(container) {
@@ -477,10 +574,19 @@ function removeVideo(container) {
     const idx = allVideos.indexOf(container);
     if (idx !== -1) allVideos.splice(idx, 1);
     container.remove();
+    
+    updateVideoCount();
+    
+    showToast('Video removed', 'success');
 }
 
+// Expose functions globally
 window.addVideo = addVideo;
-window.closeSearch = closeSearch;
+window.openSidebar = openSidebar;
+window.closeSidebar = closeSidebar;
+window.toggleSidebar = toggleSidebar;
+window.showToast = showToast;
+window.smartPaste = smartPaste;
 
 // ==============
 // Drag Handling
@@ -625,40 +731,96 @@ function stopResize() {
 // DOM Bootstrap
 // ===============
 document.addEventListener('DOMContentLoaded', () => {
-    const floatingIcon = document.getElementById('floatingIcon');
+    // Get sidebar elements
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarClose = document.getElementById('sidebarClose');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
     const urlInput = document.getElementById('urlInput');
-    const searchPanel = document.getElementById('searchPanel');
-
-    if (!urlInput || !searchPanel) return;
-
-    if (floatingIcon) {
-        floatingIcon.style.cursor = 'pointer';
-        floatingIcon.addEventListener('click', (e) => {
+    const addVideoBtn = document.getElementById('addVideoBtn');
+    
+    // Sidebar toggle button
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            const isVisible = searchPanel.style.display === 'block';
-            searchPanel.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) urlInput.focus();
+            openSidebar();
         });
     }
-
+    
+    // Sidebar close button
+    if (sidebarClose) {
+        sidebarClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSidebar();
+        });
+    }
+    
+    // Sidebar overlay click to close
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            closeSidebar();
+        });
+    }
+    
+    // Add video button in sidebar
+    if (addVideoBtn) {
+        addVideoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            addVideo();
+        });
+    }
+    
+    // Enter key to add video
+    if (urlInput) {
+        urlInput.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addVideo(); 
+            }
+        });
+        
+        // Smart paste - auto detect YouTube URL when pasting
+        urlInput.addEventListener('paste', (e) => {
+            setTimeout(() => {
+                const pastedValue = urlInput.value.trim();
+                const videoId = getYouTubeVideoId(pastedValue);
+                
+                if (videoId) {
+                    // Valid YouTube URL - auto submit
+                    createVideoContainer(videoId);
+                    urlInput.value = '';
+                    showToast('Video added from paste', 'success');
+                    closeSidebar();
+                }
+            }, 10);
+        });
+    }
+    
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         const activeTag = (document.activeElement && document.activeElement.tagName) || '';
-        const typing = ['INPUT', 'TEXTAREA'].includes(activeTag);
-        if (e.key === '/' && !typing) {
+        const isTyping = ['INPUT', 'TEXTAREA'].includes(activeTag) || 
+                         (document.activeElement && document.activeElement.isContentEditable);
+        
+        // Shift key to OPEN and CLOSE sidebar (toggle)
+        if (e.key === 'Shift' && !e.repeat) {
+            if (isTyping) {
+                if (document.body.classList.contains('sidebar-open')) {
+                    e.preventDefault();
+                    closeSidebar();
+                }
+            } else {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        }
+        
+        // Ctrl+V or Cmd+V to smart paste (when not in input)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isTyping) {
             e.preventDefault();
-            searchPanel.style.display = 'block';
-            urlInput.focus();
-        }
-        if (e.key === 'Escape') searchPanel.style.display = 'none';
-    });
-
-    urlInput.addEventListener('keypress', (e) => { 
-        if (e.key === 'Enter') addVideo(); 
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!searchPanel.contains(e.target) && !(floatingIcon && floatingIcon.contains(e.target))) {
-            searchPanel.style.display = 'none';
+            smartPaste();
         }
     });
+
+    // Initialize video count and show empty state
+    updateVideoCount();
 });
