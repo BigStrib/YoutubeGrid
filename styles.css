@@ -1,4 +1,4 @@
-/*~ --- CSS Variables --- */
+/* --- CSS Variables --- */
 :root {
     --primary: #b01616;
     --primary-hover: #961111;
@@ -959,5 +959,4 @@ body.sidebar-open .sidebar-overlay {
 button:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
-
 }
