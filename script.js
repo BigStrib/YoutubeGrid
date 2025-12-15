@@ -608,8 +608,9 @@ function handleMove(e) {
     const maxY = window.innerHeight - rect.height;
     newX = Math.max(0, Math.min(newX, maxX));
     newY = Math.max(0, Math.min(newY, maxY));
-    currentElement.style.left = `${newX}px`;
-    currentElement.style.top = `${newY}px`;
+    // 1px increments for movement
+    currentElement.style.left = `${Math.round(newX)}px`;
+    currentElement.style.top = `${Math.round(newY)}px`;
 }
 
 function stopMove() {
@@ -655,40 +656,40 @@ function handleResize(e) {
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
 
-    let newWidth = startWidth;
-    let newHeight = startHeight;
-    let newLeft = startLeft;
-    let newTop = startTop;
+    // Raw width/height changes from cursor movement
+    let rawWidth = startWidth;
+    let rawHeight = startHeight;
 
-    // Calculate new dimensions based on resize direction
     if (resizeDirection.includes('e')) {
-        newWidth = startWidth + deltaX;
+        rawWidth = startWidth + deltaX;
     }
     if (resizeDirection.includes('w')) {
-        newWidth = startWidth - deltaX;
+        rawWidth = startWidth - deltaX;
     }
     if (resizeDirection.includes('s')) {
-        newHeight = startHeight + deltaY;
+        rawHeight = startHeight + deltaY;
     }
     if (resizeDirection.includes('n')) {
-        newHeight = startHeight - deltaY;
+        rawHeight = startHeight - deltaY;
     }
 
-    // Determine which dimension changed more and maintain aspect ratio
-    const widthChange = Math.abs(newWidth - startWidth);
-    const heightChange = Math.abs(newHeight - startHeight);
+    const widthChange = Math.abs(rawWidth - startWidth);
+    const heightChange = Math.abs(rawHeight - startHeight);
 
+    let newWidth, newHeight;
+
+    // Decide which dimension is driving the resize and maintain aspect ratio
     if (widthChange >= heightChange) {
-        // Width is the primary change, calculate height from width
-        newWidth = Math.max(MIN_WIDTH, newWidth);
+        // Width is primary
+        newWidth = Math.max(MIN_WIDTH, rawWidth);
         newHeight = newWidth / ASPECT_RATIO;
     } else {
-        // Height is the primary change, calculate width from height
-        newHeight = Math.max(MIN_HEIGHT, newHeight);
+        // Height is primary
+        newHeight = Math.max(MIN_HEIGHT, rawHeight);
         newWidth = newHeight * ASPECT_RATIO;
     }
 
-    // Ensure minimum sizes
+    // Enforce minimum dimensions again (after aspect calc)
     if (newWidth < MIN_WIDTH) {
         newWidth = MIN_WIDTH;
         newHeight = newWidth / ASPECT_RATIO;
@@ -698,12 +699,26 @@ function handleResize(e) {
         newWidth = newHeight * ASPECT_RATIO;
     }
 
-    // Snap to similar sizes
-    const snapped = getSnappedSize(currentElement, newWidth, newHeight);
-    newWidth = snapped.width;
-    newHeight = snapped.height;
+    // Ensure the video never becomes larger than the viewport (fully visible)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
 
-    // Calculate position adjustments for w and n directions
+    if (newWidth > viewportWidth || newHeight > viewportHeight) {
+        const widthScale = viewportWidth / newWidth;
+        const heightScale = viewportHeight / newHeight;
+        const scale = Math.min(widthScale, heightScale);
+        newWidth = newWidth * scale;
+        newHeight = newHeight * scale;
+    }
+
+    // 1px increments: round final size
+    newWidth = Math.round(newWidth);
+    newHeight = Math.round(newHeight);
+
+    // Compute new position so opposite corner stays fixed for N/W handles
+    let newLeft = startLeft;
+    let newTop = startTop;
+
     if (resizeDirection.includes('w')) {
         newLeft = startLeft + (startWidth - newWidth);
     }
@@ -711,30 +726,14 @@ function handleResize(e) {
         newTop = startTop + (startHeight - newHeight);
     }
 
-    // Boundary checks
+    // Clamp position so whole video stays inside viewport
     const maxX = window.innerWidth - newWidth;
     const maxY = window.innerHeight - newHeight;
-    
-    if (newLeft < 0) {
-        newLeft = 0;
-        if (resizeDirection.includes('w')) {
-            newWidth = startLeft + startWidth;
-            newHeight = newWidth / ASPECT_RATIO;
-        }
-    }
-    if (newLeft > maxX) {
-        newLeft = maxX;
-    }
-    if (newTop < 0) {
-        newTop = 0;
-        if (resizeDirection.includes('n')) {
-            newHeight = startTop + startHeight;
-            newWidth = newHeight * ASPECT_RATIO;
-        }
-    }
-    if (newTop > maxY) {
-        newTop = maxY;
-    }
+    newLeft = Math.min(Math.max(0, newLeft), Math.max(0, maxX));
+    newTop = Math.min(Math.max(0, newTop), Math.max(0, maxY));
+
+    newLeft = Math.round(newLeft);
+    newTop = Math.round(newTop);
 
     // Update size indicator
     updateSizeIndicator(currentElement, newWidth, newHeight);
