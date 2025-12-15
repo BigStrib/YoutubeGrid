@@ -229,8 +229,8 @@ body {
 }
 
 .sidebar-toggle:active {
-    width: 6px;
-    height: 80px;
+    width: 8px;
+    height: 90px;
     transform: translateX(-1px);
     transition: all 0.1s ease;
 }
@@ -243,7 +243,7 @@ body {
 body.sidebar-open .sidebar-trigger {
     opacity: 0;
     pointer-events: none;
-    transform: translateY(-50%) translateX(-30px);
+    transform: translateY(-3%) translateX(-3px);
     transition: all 0.3s ease;
 }
 
@@ -550,8 +550,6 @@ body.sidebar-open .sidebar-overlay {
     content: '';
     position: absolute;
     inset: 0;
-    border: 2px dashed transparent;
-    border-radius: inherit;
     pointer-events: none;
     z-index: 15;
 }
