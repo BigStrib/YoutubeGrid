@@ -21,7 +21,6 @@ let maxZIndex = 1;
 let players = {};
 let ytAPIReady = false;
 
-const GRID_SIZE = 10;
 const SNAP_THRESHOLD = 20;
 
 const DEFAULT_LEFT = 100;
@@ -57,11 +56,6 @@ loadYouTubeAPI();
 // Helpers
 // ========================
 const isLocked = (container) => container.classList.contains('locked');
-
-function snapToGrid(value, fineSnap = false) {
-    const size = fineSnap ? 5 : GRID_SIZE;
-    return Math.round(value / size) * size;
-}
 
 function getYouTubeVideoId(input) {
     if (!input) return null;
@@ -218,8 +212,8 @@ function showDeleteConfirmation(container) {
                 </svg>
             </button>
             <button class="delete-confirm-btn confirm">
-                <svg viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                 </svg>
             </button>
         </div>
@@ -491,8 +485,8 @@ function createVideoContainer(videoId, options = {}) {
 function initYouTubePlayer(playerId, videoId, width, height) {
     const createPlayer = () => {
         players[playerId] = new YT.Player(playerId, {
-            width: width,
-            height: height,
+            width: '100%',
+            height: '100%',
             videoId: videoId,
             playerVars: {
                 autoplay: 0,
@@ -609,8 +603,6 @@ function handleMove(e) {
     if (!isDragging || !currentElement) return;
     let newX = e.clientX - startX;
     let newY = e.clientY - startY;
-    newX = snapToGrid(newX, true);
-    newY = snapToGrid(newY, true);
     const rect = currentElement.getBoundingClientRect();
     const maxX = window.innerWidth - rect.width;
     const maxY = window.innerHeight - rect.height;
@@ -668,52 +660,90 @@ function handleResize(e) {
     let newLeft = startLeft;
     let newTop = startTop;
 
-    if (resizeDirection.includes('e')) newWidth = Math.max(MIN_WIDTH, startWidth + deltaX);
-    if (resizeDirection.includes('w')) { 
-        newWidth = Math.max(MIN_WIDTH, startWidth - deltaX); 
-        newLeft = startLeft + deltaX; 
+    // Calculate new dimensions based on resize direction
+    if (resizeDirection.includes('e')) {
+        newWidth = startWidth + deltaX;
     }
-    if (resizeDirection.includes('s')) newHeight = Math.max(MIN_HEIGHT, startHeight + deltaY);
-    if (resizeDirection.includes('n')) { 
-        newHeight = Math.max(MIN_HEIGHT, startHeight - deltaY); 
-        newTop = startTop + deltaY; 
+    if (resizeDirection.includes('w')) {
+        newWidth = startWidth - deltaX;
+    }
+    if (resizeDirection.includes('s')) {
+        newHeight = startHeight + deltaY;
+    }
+    if (resizeDirection.includes('n')) {
+        newHeight = startHeight - deltaY;
     }
 
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Determine which dimension changed more and maintain aspect ratio
+    const widthChange = Math.abs(newWidth - startWidth);
+    const heightChange = Math.abs(newHeight - startHeight);
+
+    if (widthChange >= heightChange) {
+        // Width is the primary change, calculate height from width
+        newWidth = Math.max(MIN_WIDTH, newWidth);
         newHeight = newWidth / ASPECT_RATIO;
     } else {
+        // Height is the primary change, calculate width from height
+        newHeight = Math.max(MIN_HEIGHT, newHeight);
         newWidth = newHeight * ASPECT_RATIO;
     }
 
+    // Ensure minimum sizes
+    if (newWidth < MIN_WIDTH) {
+        newWidth = MIN_WIDTH;
+        newHeight = newWidth / ASPECT_RATIO;
+    }
+    if (newHeight < MIN_HEIGHT) {
+        newHeight = MIN_HEIGHT;
+        newWidth = newHeight * ASPECT_RATIO;
+    }
+
+    // Snap to similar sizes
     const snapped = getSnappedSize(currentElement, newWidth, newHeight);
-    newWidth = snapToGrid(snapped.width);
-    newHeight = snapToGrid(snapped.height);
+    newWidth = snapped.width;
+    newHeight = snapped.height;
 
-    updateSizeIndicator(currentElement, newWidth, newHeight);
-
-    const maxX = window.innerWidth - newWidth;
-    const maxY = window.innerHeight - newHeight;
+    // Calculate position adjustments for w and n directions
     if (resizeDirection.includes('w')) {
-        newLeft = Math.max(0, Math.min(newLeft, maxX));
-        newLeft = snapToGrid(newLeft, true);
+        newLeft = startLeft + (startWidth - newWidth);
     }
     if (resizeDirection.includes('n')) {
-        newTop = Math.max(0, Math.min(newTop, maxY));
-        newTop = snapToGrid(newTop, true);
+        newTop = startTop + (startHeight - newHeight);
     }
 
+    // Boundary checks
+    const maxX = window.innerWidth - newWidth;
+    const maxY = window.innerHeight - newHeight;
+    
+    if (newLeft < 0) {
+        newLeft = 0;
+        if (resizeDirection.includes('w')) {
+            newWidth = startLeft + startWidth;
+            newHeight = newWidth / ASPECT_RATIO;
+        }
+    }
+    if (newLeft > maxX) {
+        newLeft = maxX;
+    }
+    if (newTop < 0) {
+        newTop = 0;
+        if (resizeDirection.includes('n')) {
+            newHeight = startTop + startHeight;
+            newWidth = newHeight * ASPECT_RATIO;
+        }
+    }
+    if (newTop > maxY) {
+        newTop = maxY;
+    }
+
+    // Update size indicator
+    updateSizeIndicator(currentElement, newWidth, newHeight);
+
+    // Apply styles
     currentElement.style.width = `${newWidth}px`;
     currentElement.style.height = `${newHeight}px`;
-    if (resizeDirection.includes('w') || resizeDirection.includes('n')) {
-        currentElement.style.left = `${newLeft}px`;
-        currentElement.style.top = `${newTop}px`;
-    }
-
-    const playerId = currentElement.dataset.playerId;
-    const player = players[playerId];
-    if (player && player.setSize) { 
-        try { player.setSize(newWidth, newHeight); } catch {} 
-    }
+    currentElement.style.left = `${newLeft}px`;
+    currentElement.style.top = `${newTop}px`;
 }
 
 function stopResize() {
@@ -731,14 +761,23 @@ function stopResize() {
 // DOM Bootstrap
 // ===============
 document.addEventListener('DOMContentLoaded', () => {
-    // Get sidebar elements
-    const sidebarToggle = document.getElementById('sidebarToggle');
+    // Get sidebar elements - Updated for new left-edge trigger
+    const sidebarTrigger = document.querySelector('.sidebar-trigger');
+    const sidebarToggle = document.querySelector('.sidebar-toggle');
     const sidebarClose = document.getElementById('sidebarClose');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
     const urlInput = document.getElementById('urlInput');
     const addVideoBtn = document.getElementById('addVideoBtn');
     
-    // Sidebar toggle button
+    // Sidebar trigger area - clicking anywhere in trigger zone opens sidebar
+    if (sidebarTrigger) {
+        sidebarTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openSidebar();
+        });
+    }
+    
+    // Sidebar toggle button (the red line tab)
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', (e) => {
             e.stopPropagation();
